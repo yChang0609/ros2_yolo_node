@@ -8,6 +8,8 @@ import yaml
 from ultralytics import YOLO
 from ament_index_python.packages import get_package_share_directory
 import os
+import contextlib
+import io
 
 class YoloDetectionNode(Node):
     def __init__(self):
@@ -93,8 +95,10 @@ class YoloDetectionNode(Node):
             return None
 
     def detect_objects(self, image):
-        """使用 YOLO 模型進行物體檢測"""
-        return self.model(image)
+        """使用 YOLO 模型進行物體檢測，並抑制輸出訊息"""
+        with contextlib.redirect_stdout(io.StringIO()):
+            results = self.model(image, verbose=False)
+        return results
 
     def draw_bounding_boxes(self, image, results):
         """在影像上繪製 YOLO 偵測到的 Bounding Box 並取得物體深度"""
@@ -112,7 +116,7 @@ class YoloDetectionNode(Node):
                 center_y = int((y1 + y2) / 2)
                 depth_value = self.get_depth(center_x, center_y)
 
-                label = f"{int(box.cls)}: {float(box.conf):.2f}, Depth: {depth_value:.2f} m"
+                label = f"{float(box.conf):.2f}, Depth: {depth_value:.2f} m"
                 cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                 
         return image
