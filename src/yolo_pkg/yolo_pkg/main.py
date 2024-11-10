@@ -245,6 +245,7 @@ class YoloDetectionNode(Node):
                 self.get_logger().warning("Depth image index out of bounds.")
                 return 0.0
         else:
+            print("depth_image is None")
             return 0.0
 
     def publish_image(self, image):

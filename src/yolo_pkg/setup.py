@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'yolo_detection_node = yolo_pkg.main:main',
+            'depth_test = yolo_pkg.depth_test:main',
         ],
     },
 )
