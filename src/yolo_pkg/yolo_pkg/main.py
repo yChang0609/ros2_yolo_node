@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import CompressedImage, Image
+from sensor_msgs.msg import CompressedImage, Image, Imu
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
@@ -11,6 +11,7 @@ import os
 import contextlib
 import io
 from geometry_msgs.msg import PointStamped
+from scipy.spatial.transform import Rotation as R
 
 
 class YoloDetectionNode(Node):
@@ -39,6 +40,14 @@ class YoloDetectionNode(Node):
             self.image_callback,
             10
         )
+        # 订阅 IMU 数据
+        self.imu_orientation = None
+        self.imu_sub = self.create_subscription(
+            Imu,
+            '/imu/data_raw',  # 替换为您的 IMU 话题名称
+            self.imu_callback,
+            10
+        )
         
         self.depth_sub = self.create_subscription(
             Image,
@@ -55,6 +64,28 @@ class YoloDetectionNode(Node):
         
         # 初始化深度影像存储
         self.depth_image = None
+    
+    def imu_callback(self, msg):
+        """接收并存储 IMU 的姿态信息"""
+        self.imu_orientation = msg.orientation
+    
+    def get_imu_rotation_matrix(self):
+        """获取 IMU 的旋转矩阵"""
+        if self.imu_orientation is None:
+            self.get_logger().warning("No IMU orientation data available.")
+            return np.eye(3)  # 返回单位矩阵，表示没有旋转
+
+        # 从四元数构造旋转矩阵
+        quat = [
+            self.imu_orientation.x,
+            self.imu_orientation.y,
+            self.imu_orientation.z,
+            self.imu_orientation.w
+        ]
+        r = R.from_quat(quat)
+        rotation_matrix = r.as_matrix()
+        return rotation_matrix
+
 
     def load_camera_intrinsics(self):
         """载入相机内参"""
@@ -156,6 +187,8 @@ class YoloDetectionNode(Node):
                 # 计算在相机坐标系中的3D坐标
                 if depth_value > 0:  # 深度值为正数才计算
                     object_position_camera = self.calculate_3d_position(center_x, center_y, depth_value)
+                    # object_position_camera = self.correct_position_with_imu(object_position_camera)
+                    # object_position_camera = self.transform_to_left_hand_coordinate(object_position_camera)
                     self.publish_position(object_position_camera)
                     label1 = f"Conf: {float(box.conf):.2f}, Depth: {depth_value:.2f} m"
                     label2 = f"Pos: [{object_position_camera[0]:.2f}, {object_position_camera[1]:.2f}, {object_position_camera[2]:.2f}]"
@@ -170,22 +203,36 @@ class YoloDetectionNode(Node):
         return image
 
     def calculate_3d_position(self, x, y, depth):
-        """使用内参和深度计算物体的3D坐标（左手坐标系）"""
         fx = self.camera_intrinsics['fx']
         fy = self.camera_intrinsics['fy']
         cx = self.camera_intrinsics['cx']
         cy = self.camera_intrinsics['cy']
 
-        # 计算左手坐标系下的坐标
         X = (x - cx) * depth / fx  # X 轴：水平，向右为正
         Y = (y - cy) * depth / fy  # Y 轴：垂直，向下为正
         Z = depth                  # Z 轴：指向前方，深度方向
 
-        pybullet_x = Z
-        pybullet_y = X
-        pybullet_z = -Y
+        # 將相機坐標系轉換為 IMU 坐標系
+        imu_position = np.array([Z, -X, -Y])
 
-        return np.array([pybullet_x, pybullet_y, pybullet_z])
+        return imu_position
+    
+    def correct_position_with_imu(self, position):
+        """
+        使用 IMU 的旋轉矩陣來矯正相機坐標，使其在相機坐標系中保持相對應的方向，但保持深度不變。
+        """
+        # position 是相機坐標系下的物體位置 [X, Y, Z]
+        rotation_matrix = self.get_imu_rotation_matrix()
+        rotated_position = rotation_matrix @ position
+        corrected_position = np.array([position[0], rotated_position[1], rotated_position[2]])
+        return corrected_position
+
+    
+    def transform_to_left_hand_coordinate(self, position):
+        # 只需反轉 Y 軸即可
+        new_position = np.array([position[0], -position[1], position[2]])
+        return new_position
+
 
     def get_depth(self, x, y):
         """获取指定像素点的深度，以米为单位"""
