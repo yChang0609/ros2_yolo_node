@@ -44,7 +44,7 @@ class YoloDetectionNode(Node):
         self.imu_orientation = None
         self.imu_sub = self.create_subscription(
             Imu,
-            '/imu/data_raw',  # 替换为您的 IMU 话题名称
+            '/imu/data',  # 替换为您的 IMU 话题名称
             self.imu_callback,
             10
         )
@@ -61,6 +61,8 @@ class YoloDetectionNode(Node):
 
         # 创建物体位置的发布者
         self.point_pub = self.create_publisher(PointStamped, '/yolo/detection/position', 10)
+
+        self.point_offset_pub = self.create_publisher(PointStamped, '/yolo/detection/offset', 10)
         
         # 初始化深度影像存储
         self.depth_image = None
@@ -85,6 +87,32 @@ class YoloDetectionNode(Node):
         r = R.from_quat(quat)
         rotation_matrix = r.as_matrix()
         return rotation_matrix
+    
+    def calculate_movement_to_center_crosshair(self, object_center_x, object_center_y, depth_value):
+        """
+        計算需要的 3D 位移，使機械手臂的末端移動，讓畫面中心十字架對準物體中心點。
+        Args:
+            object_center_x (int): 物體在畫面中的 x 座標
+            object_center_y (int): 物體在畫面中的 y 座標
+            depth_value (float): 物體的深度
+        Returns:
+            np.array: 3D 位移向量，用於使十字架對準物體
+        """
+        # 相機內參
+        fx = self.camera_intrinsics['fx']
+        fy = self.camera_intrinsics['fy']
+        cx = self.camera_intrinsics['cx']
+        cy = self.camera_intrinsics['cy']
+        
+        # 計算物體相對於畫面中心（十字架）的偏移量
+        x_offset = (object_center_x - cx) * depth_value / fx
+        y_offset = (object_center_y - cy) * depth_value / fy
+        z_offset = 0  # 保持原深度
+
+        # 3D 位移向量，不使用 IMU，僅根據相機資訊進行偏移
+        offset_in_camera_frame = np.array([x_offset, -y_offset, z_offset])
+        
+        return offset_in_camera_frame
 
 
     def load_camera_intrinsics(self):
@@ -110,7 +138,17 @@ class YoloDetectionNode(Node):
         point_msg.point.z = position[2]
         
         self.point_pub.publish(point_msg)
-        self.get_logger().info(f"Published object position in camera frame: [{position[0]:.2f}, {position[1]:.2f}, {position[2]:.2f}]")
+        # self.get_logger().info(f"Published object position in camera frame: [{position[0]:.2f}, {position[1]:.2f}, {position[2]:.2f}]")
+    
+    def publish_offset(self, position):
+        point_msg = PointStamped()
+        point_msg.header.stamp = self.get_clock().now().to_msg()
+        point_msg.point.x = position[0]
+        point_msg.point.y = position[1]
+        point_msg.point.z = position[2]
+        
+        self.point_offset_pub.publish(point_msg)
+        # self.get_logger().info(f"Published object position in camera frame: [{position[0]:.2f}, {position[1]:.2f}, {position[2]:.2f}]")
 
     def image_callback(self, msg):
         """RGB影像处理与目标检测"""
@@ -187,8 +225,10 @@ class YoloDetectionNode(Node):
                 # 计算在相机坐标系中的3D坐标
                 if depth_value > 0:  # 深度值为正数才计算
                     object_position_camera = self.calculate_3d_position(center_x, center_y, depth_value)
+                    movement_offset = self.calculate_movement_to_center_crosshair(center_x, center_y, depth_value)
                     # object_position_camera = self.correct_position_with_imu(object_position_camera)
                     # object_position_camera = self.transform_to_left_hand_coordinate(object_position_camera)
+                    self.publish_offset(movement_offset)
                     self.publish_position(object_position_camera)
                     label1 = f"Conf: {float(box.conf):.2f}, Depth: {depth_value:.2f} m"
                     label2 = f"Pos: [{object_position_camera[0]:.2f}, {object_position_camera[1]:.2f}, {object_position_camera[2]:.2f}]"
@@ -217,15 +257,25 @@ class YoloDetectionNode(Node):
 
         return imu_position
     
-    def correct_position_with_imu(self, position):
-        """
-        使用 IMU 的旋轉矩陣來矯正相機坐標，使其在相機坐標系中保持相對應的方向，但保持深度不變。
-        """
-        # position 是相機坐標系下的物體位置 [X, Y, Z]
-        rotation_matrix = self.get_imu_rotation_matrix()
-        rotated_position = rotation_matrix @ position
-        corrected_position = np.array([position[0], rotated_position[1], rotated_position[2]])
-        return corrected_position
+    def calculate_3d_position_imu(self, x, y, depth):
+        # 使用相機內參將像素坐標轉換為相機坐標系下的 3D 座標
+        fx = self.camera_intrinsics['fx']
+        fy = self.camera_intrinsics['fy']
+        cx = self.camera_intrinsics['cx']
+        cy = self.camera_intrinsics['cy']
+
+        X = (x - cx) * depth / fx
+        Y = (y - cy) * depth / fy
+        Z = depth
+
+        # 相機坐標系下的物體位置
+        object_position_camera = np.array([X, Y, Z])
+
+        # 獲取 IMU 的旋轉矩陣，並應用到相機坐標系下的物體位置
+        imu_rotation_matrix = self.get_imu_rotation_matrix()
+        object_position_world = imu_rotation_matrix @ object_position_camera
+
+        return object_position_world
 
     
     def transform_to_left_hand_coordinate(self, position):
