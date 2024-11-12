@@ -12,7 +12,7 @@ import contextlib
 import io
 from geometry_msgs.msg import PointStamped
 from scipy.spatial.transform import Rotation as R
-
+from std_msgs.msg import String, Bool
 
 class YoloDetectionNode(Node):
     def __init__(self):
@@ -56,6 +56,13 @@ class YoloDetectionNode(Node):
             10
         )
 
+        self.target_label_sub = self.create_subscription(
+            String,
+            '/target_label',
+            self.target_label_callback,
+            10
+        )
+
         # 创建影像发布者，发布检测后的影像
         self.image_pub = self.create_publisher(CompressedImage, '/yolo/detection/compressed', 10)
 
@@ -63,14 +70,20 @@ class YoloDetectionNode(Node):
         self.point_pub = self.create_publisher(PointStamped, '/yolo/detection/position', 10)
 
         self.point_offset_pub = self.create_publisher(PointStamped, '/yolo/detection/offset', 10)
+        self.detection_status_pub = self.create_publisher(Bool, '/yolo/detection/status', 10)
         
         # 初始化深度影像存储
         self.depth_image = None
+        self.target_label = None
     
     def imu_callback(self, msg):
         """接收并存储 IMU 的姿态信息"""
         self.imu_orientation = msg.orientation
     
+    def target_label_callback(self, msg):
+        """Callback to receive the target label name"""
+        self.target_label = msg.data
+
     def get_imu_rotation_matrix(self):
         """获取 IMU 的旋转矩阵"""
         if self.imu_orientation is None:
@@ -211,9 +224,15 @@ class YoloDetectionNode(Node):
             crosshair_color,
             crosshair_thickness
         )
-
+        target_detected = False
         for result in results:
             for box in result.boxes:
+                class_id = int(box.cls[0])
+                class_name = self.model.names[class_id]
+                print(class_name)
+                if class_name != self.target_label:
+                    continue
+                target_detected = True
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 
@@ -239,7 +258,7 @@ class YoloDetectionNode(Node):
                 # 在影像上绘制两行文字
                 cv2.putText(image, label1, (x1, y1 - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                 cv2.putText(image, label2, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                
+        self.detection_status_pub.publish(Bool(data=target_detected))  
         return image
 
     def calculate_3d_position(self, x, y, depth):
