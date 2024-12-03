@@ -229,7 +229,6 @@ class YoloDetectionNode(Node):
             for box in result.boxes:
                 class_id = int(box.cls[0])
                 class_name = self.model.names[class_id]
-                print(class_name)
                 if class_name != self.target_label:
                     continue
                 target_detected = True
@@ -240,11 +239,12 @@ class YoloDetectionNode(Node):
                 center_x = int((x1 + x2) / 2)
                 center_y = int((y1 + y2) / 2)
                 depth_value = self.get_depth(center_x, center_y)
-
+                movement_offset = self.calculate_movement_to_center_crosshair(center_x, center_y, depth_value)
+                
                 # 计算在相机坐标系中的3D坐标
                 if depth_value > 0:  # 深度值为正数才计算
                     object_position_camera = self.calculate_3d_position(center_x, center_y, depth_value)
-                    movement_offset = self.calculate_movement_to_center_crosshair(center_x, center_y, depth_value)
+                    
                     # object_position_camera = self.correct_position_with_imu(object_position_camera)
                     # object_position_camera = self.transform_to_left_hand_coordinate(object_position_camera)
                     self.publish_offset(movement_offset)
