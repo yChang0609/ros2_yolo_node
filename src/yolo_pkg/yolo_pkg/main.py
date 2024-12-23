@@ -25,7 +25,7 @@ class YoloDetectionNode(Node):
         model_path = os.path.join(
             get_package_share_directory('yolo_pkg'),
             'models',
-            'best_nano_auto_augu_super_close_fire.pt'
+            'yolov8n.pt'
         )
         self.model = YOLO(model_path)
         self.model.to('cuda')
@@ -36,10 +36,11 @@ class YoloDetectionNode(Node):
         # 订阅 RGB 和深度信息
         self.image_sub = self.create_subscription(
             CompressedImage,
-            '/camera/color/image_raw/compressed',
+            '/camera/image/compressed',
             self.image_callback,
             10
         )
+        
         # 订阅 IMU 数据
         self.imu_orientation = None
         self.imu_sub = self.create_subscription(
@@ -199,7 +200,7 @@ class YoloDetectionNode(Node):
             results = self.model(image, verbose=False)
         return results
 
-    def draw_bounding_boxes(self, image, results):
+    def draw_bounding_boxes(self, image, results, target_label=None):
         """在影像上绘制 YOLO 检测到的 Bounding Box 并获取物体深度及在相机坐标系中的3D坐标"""
         if self.depth_image is None:
             self.get_logger().warning("No depth image available.")
@@ -229,8 +230,9 @@ class YoloDetectionNode(Node):
             for box in result.boxes:
                 class_id = int(box.cls[0])
                 class_name = self.model.names[class_id]
-                if class_name != self.target_label:
+                if target_label is not None and class_name != target_label:
                     continue
+
                 target_detected = True
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -245,8 +247,6 @@ class YoloDetectionNode(Node):
                 if depth_value > 0:  # 深度值为正数才计算
                     object_position_camera = self.calculate_3d_position(center_x, center_y, depth_value)
                     
-                    # object_position_camera = self.correct_position_with_imu(object_position_camera)
-                    # object_position_camera = self.transform_to_left_hand_coordinate(object_position_camera)
                     self.publish_offset(movement_offset)
                     self.publish_position(object_position_camera)
                     label1 = f"Conf: {float(box.conf):.2f}, Depth: {depth_value:.2f} m"
