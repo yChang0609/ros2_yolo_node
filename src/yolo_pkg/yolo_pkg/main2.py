@@ -25,6 +25,8 @@ def main():
     while(1):
         boundingbox_visualizer.draw_bounding_boxes()
         depth = object_detect_manager.get_yolo_object_depth()
+        c = camera_geometry.calculate_3d_position()
+        print(c)
 
 if __name__ == '__main__':
     main()
