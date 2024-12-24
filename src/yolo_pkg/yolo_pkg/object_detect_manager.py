@@ -14,8 +14,8 @@ class ObjectDetectManager():
     def convert_image_to_cv(self):
         """Converts ROS image to OpenCV format (np.ndarray)."""
         try:
-            ros_image = self.ros_communicator.get_latest_image()
-            cv_image = self.bridge.compressed_imgmsg_to_cv2(ros_image, desired_encoding='bgr8')
+            self.image = self.ros_communicator.get_latest_image()
+            cv_image = self.bridge.compressed_imgmsg_to_cv2(self.image, desired_encoding='bgr8')
             if not isinstance(cv_image, np.ndarray):
                 raise TypeError("Converted image is not a valid numpy array.")
             self.image = cv_image

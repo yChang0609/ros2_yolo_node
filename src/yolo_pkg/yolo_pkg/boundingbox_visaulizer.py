@@ -1,13 +1,41 @@
-from cv_bridge import CvBridge
 import cv2
 import numpy as np
 
 class BoundingBoxVisualizer():
-    def __init__(self, ros_communicator, object_detect_manager):
+    def __init__(self, ros_communicator, object_detect_manager, camera_parameters):
         self.ros_communicator = ros_communicator
         self.object_detect_manager = object_detect_manager
+        self.camera_parameters = camera_parameters.get_camera_intrinsics()
     
-    def draw_bounding_boxes(self):
+    def draw_crosshair(self, image):
+        """
+        在影像中心繪製紅色十字。
+        """
+        cx = int(self.camera_parameters['cx'])
+        cy = int(self.camera_parameters['cy'])
+        crosshair_color = (0, 0, 255)  # 紅色
+        crosshair_thickness = 2
+        crosshair_length = 20  # 十字線長度
+
+        # 水平線
+        cv2.line(
+            image,
+            (cx - crosshair_length, cy),
+            (cx + crosshair_length, cy),
+            crosshair_color,
+            crosshair_thickness
+        )
+
+        # 垂直線
+        cv2.line(
+            image,
+            (cx, cy - crosshair_length),
+            (cx, cy + crosshair_length),
+            crosshair_color,
+            crosshair_thickness
+        )
+
+    def draw_bounding_boxes(self, draw_crosshair=True):
         """
         根據 YOLO 偵測結果在影像上繪製 Bounding Box。
         """
@@ -30,6 +58,9 @@ class BoundingBoxVisualizer():
                 image, label_text, (x1, y1 - 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2
             )
+            
+        if draw_crosshair:
+            self.draw_crosshair(image)
 
         if not isinstance(image, (np.ndarray,)):
             print("Processed image is not a valid numpy array.")
