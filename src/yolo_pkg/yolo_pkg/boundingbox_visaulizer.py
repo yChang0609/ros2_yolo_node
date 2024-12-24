@@ -1,65 +1,46 @@
 from cv_bridge import CvBridge
-import contextlib
-import io
+import cv2
+import numpy as np
 
 class BoundingBoxVisualizer():
-    def __init__(self, ros_communicator, yolo_model):
+    def __init__(self, ros_communicator, object_detect_manager):
         self.ros_communicator = ros_communicator
-        self.yolo_model = yolo_model
+        self.object_detect_manager = object_detect_manager
     
-    def convert_image(self, msg):
-        """trans ROS image to cv format"""
-        try:
-            return self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        except Exception as e:
-            self.get_logger().error(f"Could not convert image: {e}")
-            return None
-
-    def get_rgb_image(self):
-        return self.ros_communicator.get_latest_image()
-
-    def detect_objects(self, image):
-        with contextlib.redirect_stdout(io.StringIO()):
-            results = self.model(image, verbose=False)
-        return results
-    
-    def get_tags_and_boxes(self, confidence_threshold=0.5):
-        target_label = self.get_target_label()
-        image = self.get_rgb_image()
-        cv_image = self.convert_image(image)
-        if cv_image is None:
-            self.get_logger().error("Failed to convert image.")
-            return []
-        
-        detection_results = self.detect_objects(cv_image)
-
-        detected_objects = []
-        for result in detection_results:
-            for box in result.boxes:
-                class_id = int(box.cls[0])
-                class_name = self.model.names[class_id]
-                confidence = float(box.conf)
-                
-                if confidence < confidence_threshold:
-                    continue
-                
-                if target_label and class_name != target_label:
-                    continue
-
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                detected_objects.append({
-                    'label': class_name,
-                    'confidence': confidence,
-                    'box': (x1, y1, x2, y2)
-                })
-        return detected_objects
-
-    def get_target_label(self):
-        target_label = self.ros_communicator.get_latest_target_label()
-        if target_label in [None, "None"]:
-            target_label = None  # 不過濾標籤
-        return target_label
-
     def draw_bounding_boxes(self):
+        """
+        根據 YOLO 偵測結果在影像上繪製 Bounding Box。
+        """
+        # 獲取 RGB 影像
+        # 獲取標籤與框座標（包含信心值過濾和目標標籤過濾）
+        detected_objects = self.object_detect_manager.get_tags_and_boxes()
+        image = self.object_detect_manager.get_cv_image()
+        # 繪製 Bounding Box
+        for obj in detected_objects:
+            label = obj['label']
+            confidence = obj['confidence']
+            x1, y1, x2, y2 = obj['box']
+
+            # 繪製 Bounding Box
+            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+            # 繪製標籤與置信度
+            label_text = f"{label} ({confidence:.2f})"
+            cv2.putText(
+                image, label_text, (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2
+            )
+
+        if not isinstance(image, (np.ndarray,)):
+            print("Processed image is not a valid numpy array.")
+            return
+
+        try:
+            # 將影像轉換為 ROS 訊息並發布
+            ros_image = self.object_detect_manager.get_ros_image()
+            self.ros_communicator.publish_yolo_image(ros_image)
+        except Exception as e:
+            print(f"Failed to convert or publish image: {e}")
+
         
         

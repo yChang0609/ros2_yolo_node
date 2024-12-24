@@ -72,8 +72,7 @@ class RosCommunicator(Node):
 
     def publish_yolo_image(self, image):
         try:
-            compressed_msg = self.bridge.cv2_to_compressed_imgmsg(image)
-            self.yolo_image_pub.publish(compressed_msg)
+            self.yolo_image_pub.publish(image)
         except Exception as e:
             self.get_logger().error(f"Could not publish image: {e}")
 
