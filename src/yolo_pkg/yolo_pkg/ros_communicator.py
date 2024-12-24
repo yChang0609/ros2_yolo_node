@@ -26,8 +26,8 @@ class RosCommunicator(Node):
 
         self.latest_depth_image = None
         self.depth_image_sub = self.create_subscription(
-            Image,
-            '/camera/depth/image_raw',
+            CompressedImage,
+            '/camera/depth/compressed',
             self.depth_image_sub_callback,
             10
         )

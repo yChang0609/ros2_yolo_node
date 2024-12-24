@@ -4,6 +4,7 @@ from yolo_pkg.boundingbox_visaulizer import BoundingBoxVisualizer
 from yolo_pkg.yolo_detect_model import YoloDetectionModel
 from yolo_pkg.object_detect_manager import ObjectDetectManager
 from yolo_pkg.camera_parameters import CameraParameters
+from yolo_pkg.camera_geometry import CameraGeometry
 import threading
 
 def init_ros_node():
@@ -19,9 +20,11 @@ def main():
     camera_parameters = CameraParameters()
     object_detect_manager = ObjectDetectManager(ros_communicator, yolo_model)
     boundingbox_visualizer = BoundingBoxVisualizer(ros_communicator, object_detect_manager, camera_parameters)
-    
+    camera_geometry = CameraGeometry(camera_parameters, object_detect_manager)
+
     while(1):
         boundingbox_visualizer.draw_bounding_boxes()
+        depth = object_detect_manager.get_yolo_object_depth()
 
 if __name__ == '__main__':
     main()
