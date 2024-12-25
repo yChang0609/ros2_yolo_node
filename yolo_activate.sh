@@ -27,6 +27,7 @@ elif [ "$ARCH" = "x86_64" ]; then
         --gpus all \
         --env-file .env \
         -v "$(pwd)/src:/workspaces/src" \
+        -v "$(pwd)/screenshots:/workspaces/screenshots" \
         registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
         /bin/bash
 else

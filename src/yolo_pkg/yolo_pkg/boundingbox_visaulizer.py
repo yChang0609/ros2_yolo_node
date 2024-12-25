@@ -1,5 +1,8 @@
 import cv2
 import numpy as np
+import os
+import time
+from datetime import datetime
 
 class BoundingBoxVisualizer():
     def __init__(self, ros_communicator, object_detect_manager, camera_parameters):
@@ -35,7 +38,7 @@ class BoundingBoxVisualizer():
             crosshair_thickness
         )
 
-    def draw_bounding_boxes(self, draw_crosshair=True):
+    def draw_bounding_boxes(self, draw_crosshair=False, screenshot_mode=False, save_folder="screenshots"):
         """
         根據 YOLO 偵測結果在影像上繪製 Bounding Box。
         """
@@ -58,6 +61,13 @@ class BoundingBoxVisualizer():
                 image, label_text, (x1, y1 - 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2
             )
+            if screenshot_mode:
+                cropped_image = image[y1:y2, x1:x2]
+                if cropped_image.size > 0:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    screenshot_path = os.path.join(save_folder, f"{label}_{timestamp}.png")
+                    cv2.imwrite(screenshot_path, cropped_image)
+                    print(f"Saved cropped screenshot for {label} to: {screenshot_path}")
             
         if draw_crosshair:
             self.draw_crosshair(image)
