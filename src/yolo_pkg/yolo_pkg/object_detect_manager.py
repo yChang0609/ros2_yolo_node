@@ -95,7 +95,7 @@ class ObjectDetectManager():
     
 
 
-    def get_tags_and_boxes(self, confidence_threshold=0.5):
+    def get_tags_and_boxes(self, confidence_threshold=0.7):
         self.target_label = self.get_target_label()
         self.image = self.ros_communicator.get_latest_image()
         self.image = self.convert_image_to_cv(img=self.image, mode="rgb")
