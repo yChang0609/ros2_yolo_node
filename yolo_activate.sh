@@ -8,6 +8,7 @@ fi
 
 # 檢查系統架構
 ARCH=$(uname -m)
+OS=$(uname -s)
 
 if [ "$ARCH" = "aarch64" ]; then
     echo "Detected architecture: arm64"
@@ -19,8 +20,8 @@ if [ "$ARCH" = "aarch64" ]; then
         -v "$(pwd)/src:/workspace/src" \
         yolo_ros2:latest \
         /bin/bash
-elif [ "$ARCH" = "x86_64" ]; then
-    echo "Detected architecture: amd64"
+elif [ "$ARCH" = "x86_64" ] || { [ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]; }; then
+    echo "Detected architecture: amd64 or macOS arm64"
     docker run -it --rm \
         --network compose_my_bridge_network \
         $PORT_MAPPING \
