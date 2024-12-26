@@ -22,15 +22,28 @@ if [ "$ARCH" = "aarch64" ]; then
         /bin/bash
 elif [ "$ARCH" = "x86_64" ] || { [ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]; }; then
     echo "Detected architecture: amd64 or macOS arm64"
-    docker run -it --rm \
-        --network compose_my_bridge_network \
-        $PORT_MAPPING \
-        --gpus all \
-        --env-file .env \
-        -v "$(pwd)/src:/workspaces/src" \
-        -v "$(pwd)/screenshots:/workspaces/screenshots" \
-        registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
-        /bin/bash
+    if [ "$OS" = "Darwin" ]; then
+        # macOS 不使用 --gpus all
+        docker run -it --rm \
+            --network compose_my_bridge_network \
+            $PORT_MAPPING \
+            --env-file .env \
+            -v "$(pwd)/src:/workspaces/src" \
+            -v "$(pwd)/screenshots:/workspaces/screenshots" \
+            registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
+            /bin/bash
+    else
+        # 非 macOS 使用 --gpus all
+        docker run -it --rm \
+            --network compose_my_bridge_network \
+            $PORT_MAPPING \
+            --gpus all \
+            --env-file .env \
+            -v "$(pwd)/src:/workspaces/src" \
+            -v "$(pwd)/screenshots:/workspaces/screenshots" \
+            registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
+            /bin/bash
+    fi
 else
     echo "Unsupported architecture: $ARCH"
     exit 1
