@@ -1,4 +1,5 @@
 import os
+import torch
 from ament_index_python.packages import get_package_share_directory
 from ultralytics import YOLO
 
@@ -10,7 +11,12 @@ class YoloDetectionModel():
             'yolov8n.pt'
         )
         self.model = YOLO(model_path)
-        self.model.to('cuda')
+        if torch.cuda.is_available():
+            print("CUDA is available. Using GPU.")
+            self.model.to('cuda')
+        else:
+            print("CUDA is not available. Using CPU.")
+            self.model.to('cpu')
     
     def get_model(self):
         return self.model
