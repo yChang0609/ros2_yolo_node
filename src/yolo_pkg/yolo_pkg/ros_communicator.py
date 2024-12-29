@@ -11,7 +11,7 @@ class RosCommunicator(Node):
         self.image_sub = self.create_subscription(
             CompressedImage,
             '/camera/image/compressed',
-            self.image_sub_callback,
+            self._image_sub_callback,
             10
         )
 
@@ -20,7 +20,7 @@ class RosCommunicator(Node):
         self.imu_sub = self.create_subscription(
             Imu,
             '/imu/data',
-            self.imu_sub_callback,
+            self._imu_sub_callback,
             10
         )
 
@@ -28,7 +28,7 @@ class RosCommunicator(Node):
         self.depth_image_sub = self.create_subscription(
             CompressedImage,
             '/camera/depth/compressed',
-            self.depth_image_sub_callback,
+            self._depth_image_sub_callback,
             10
         )
         
@@ -36,7 +36,7 @@ class RosCommunicator(Node):
         self.target_label_sub = self.create_subscription(
             String,
             '/target_label',
-            self.target_label_sub_callback,
+            self._target_label_sub_callback,
             10
         )
 
@@ -46,25 +46,25 @@ class RosCommunicator(Node):
         self.detection_status_pub = self.create_publisher(Bool, '/yolo/detection/status', 10)
 
 
-    def image_sub_callback(self, msg):
+    def _image_sub_callback(self, msg):
         self.latest_image = msg
 
     def get_latest_image(self):
         return self.latest_image
 
-    def imu_sub_callback(self, msg):
+    def _imu_sub_callback(self, msg):
         self.latest_imu = msg
     
     def get_latest_imu(self):
         return self.latest_imu
 
-    def depth_image_sub_callback(self, msg):
+    def _depth_image_sub_callback(self, msg):
         self.latest_depth_image = msg
     
     def get_latest_depth_image(self):
         return self.latest_depth_image
     
-    def target_label_sub_callback(self, msg):
+    def _target_label_sub_callback(self, msg):
         self.latest_target_label = msg
     
     def get_latest_target_label(self):

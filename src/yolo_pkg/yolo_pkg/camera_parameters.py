@@ -6,7 +6,7 @@ class CameraParameters():
     def __init__(self):
         self.camera_intrinsics = None
     
-    def load_camera_intrinsics(self):
+    def _load_camera_intrinsics(self):
         config_path = os.path.join(get_package_share_directory('yolo_pkg'), 'config', 'ost.yaml')
         with open(config_path, 'r') as file:
             camera_params = yaml.safe_load(file)
@@ -19,5 +19,5 @@ class CameraParameters():
         }
     
     def get_camera_intrinsics(self):
-        self.camera_intrinsics = self.load_camera_intrinsics()
+        self.camera_intrinsics = self._load_camera_intrinsics()
         return self.camera_intrinsics

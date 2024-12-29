@@ -12,7 +12,7 @@ class ObjectDetectManager():
         self.image = None
         self.bridge = CvBridge()
 
-    def convert_image_to_cv(self, img, mode):
+    def _convert_image_to_cv(self, img, mode):
         """Converts ROS image to OpenCV format (np.ndarray)."""
         try:
             # 檢查影像格式並選擇對應的轉換方法
@@ -24,7 +24,6 @@ class ObjectDetectManager():
             else:
                 raise TypeError("Unsupported image type. Expected CompressedImage or Image.")
 
-            # 確認轉換後的結果為 numpy 陣列
             if not isinstance(cv_image, np.ndarray):
                 raise TypeError("Converted image is not a valid numpy array.")
 
@@ -33,15 +32,13 @@ class ObjectDetectManager():
         except Exception as e:
             print(f"Error converting image: {e}")
             return None
-
-
     
     def get_depth_cv_image(self):
         """Fetch and convert the depth image from ROS to OpenCV format."""
         image = self.ros_communicator.get_latest_depth_image()
-        return self.convert_image_to_cv(image, mode="depth")
+        return self._convert_image_to_cv(image, mode="depth")
 
-    def detect_objects(self, image):
+    def _detect_objects(self, image):
         with contextlib.redirect_stdout(io.StringIO()):
             results = self.model(image, verbose=False)
         return results
@@ -55,7 +52,7 @@ class ObjectDetectManager():
     def get_target_label(self):
         target_label = self.ros_communicator.get_latest_target_label()
         if target_label in [None, "None"]:
-            target_label = None  # 不過濾標籤
+            target_label = None
         return target_label
 
 
@@ -81,7 +78,6 @@ class ObjectDetectManager():
                 print(f"No depth data available for {label}.")
                 continue
 
-            # 计算目标区域的平均深度
             mean_depth = np.mean(depth_region[depth_region > 0])
 
             objects_with_depth.append({
@@ -95,11 +91,11 @@ class ObjectDetectManager():
     def get_tags_and_boxes(self, confidence_threshold=0.7):
         self.target_label = self.get_target_label()
         self.image = self.ros_communicator.get_latest_image()
-        self.image = self.convert_image_to_cv(img=self.image, mode="rgb")
+        self.image = self._convert_image_to_cv(img=self.image, mode="rgb")
         if self.image is None:
             return []
         
-        detection_results = self.detect_objects(self.image)
+        detection_results = self._detect_objects(self.image)
 
         detected_objects = []
         for result in detection_results:

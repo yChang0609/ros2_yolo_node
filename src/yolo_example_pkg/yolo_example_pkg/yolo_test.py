@@ -15,7 +15,6 @@ class YoloDetectionNode(Node):
         # 初始化 cv_bridge
         self.bridge = CvBridge()
 
-        # 初始化 YOLO 模型，使用 GPU
         model_path = os.path.join(
             get_package_share_directory('yolo_pkg'),
             'models',

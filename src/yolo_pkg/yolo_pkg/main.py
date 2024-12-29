@@ -237,7 +237,6 @@ class YoloDetectionNode(Node):
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 
-                # 计算物体中心点的深度
                 center_x = int((x1 + x2) / 2)
                 center_y = int((y1 + y2) / 2)
                 depth_value = self.get_depth(center_x, center_y)

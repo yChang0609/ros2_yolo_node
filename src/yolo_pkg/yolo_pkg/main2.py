@@ -7,7 +7,7 @@ from yolo_pkg.camera_parameters import CameraParameters
 from yolo_pkg.camera_geometry import CameraGeometry
 import threading
 
-def init_ros_node():
+def _init_ros_node():
     rclpy.init()
     node = RosCommunicator()
     thread = threading.Thread(target=rclpy.spin, args=(node,))
@@ -15,7 +15,7 @@ def init_ros_node():
     return node, thread
 
 def main():
-    ros_communicator, ros_thread = init_ros_node()
+    ros_communicator, ros_thread = _init_ros_node()
     yolo_model = YoloDetectionModel()
     camera_parameters = CameraParameters()
     object_detect_manager = ObjectDetectManager(ros_communicator, yolo_model)

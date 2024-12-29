@@ -10,10 +10,8 @@ class BoundingBoxVisualizer():
         self.object_detect_manager = object_detect_manager
         self.camera_parameters = camera_parameters.get_camera_intrinsics()
     
-    def draw_crosshair(self, image):
-        """
-        在影像中心繪製紅色十字。
-        """
+    def _draw_crosshair(self, image):
+
         height, width = image.shape[:2]
         
         cx = width // 2
@@ -73,7 +71,7 @@ class BoundingBoxVisualizer():
                     print(f"Saved cropped screenshot for {label} to: {screenshot_path}")
             
         if draw_crosshair:
-            self.draw_crosshair(image)
+            self._draw_crosshair(image)
 
         if not isinstance(image, (np.ndarray,)):
             print("Processed image is not a valid numpy array.")

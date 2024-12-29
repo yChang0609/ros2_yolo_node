@@ -13,7 +13,7 @@ class CameraGeometry():
         """
         return self._process_objects(self._calculate_position)
 
-    def calculate_movement_to_center_crosshair(self):
+    def _calculate_movement_to_center_crosshair(self):
         """
         計算需要的 3D 位移，使機械手臂的末端移動，讓畫面中心十字架對準物體中心點。
         Returns:
