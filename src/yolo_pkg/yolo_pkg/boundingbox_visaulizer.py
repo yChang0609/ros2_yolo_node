@@ -14,8 +14,11 @@ class BoundingBoxVisualizer():
         """
         在影像中心繪製紅色十字。
         """
-        cx = int(self.camera_parameters['cx'])
-        cy = int(self.camera_parameters['cy'])
+        height, width = image.shape[:2]
+        
+        cx = width // 2
+        cy = height // 2
+
         crosshair_color = (0, 0, 255)  # 紅色
         crosshair_thickness = 2
         crosshair_length = 20  # 十字線長度

@@ -75,7 +75,6 @@ class ObjectDetectManager():
             label = obj['label']
             x1, y1, x2, y2 = obj['box']
 
-            # 提取深度图中对应目标区域的深度值
             depth_region = depth_cv_image[y1:y2, x1:x2]
 
             if depth_region.size == 0:
@@ -92,8 +91,6 @@ class ObjectDetectManager():
             })
 
         return objects_with_depth
-    
-
 
     def get_tags_and_boxes(self, confidence_threshold=0.7):
         self.target_label = self.get_target_label()

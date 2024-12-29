@@ -23,7 +23,7 @@ def main():
     camera_geometry = CameraGeometry(camera_parameters, object_detect_manager)
 
     while(1):
-        boundingbox_visualizer.draw_bounding_boxes(screenshot_mode=True)
+        boundingbox_visualizer.draw_bounding_boxes(screenshot_mode=False, draw_crosshair=True)
         depth = object_detect_manager.get_yolo_object_depth()
         c = camera_geometry.calculate_3d_position()
 
