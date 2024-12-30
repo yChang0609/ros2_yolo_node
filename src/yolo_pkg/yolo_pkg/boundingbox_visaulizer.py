@@ -47,6 +47,9 @@ class BoundingBoxVisualizer():
         # 獲取標籤與框座標（包含信心值過濾和目標標籤過濾）
         detected_objects = self.object_detect_manager.get_tags_and_boxes()
         image = self.object_detect_manager.get_cv_image()
+        if image is None:
+            print("Error: No image received from object_detect_manager.get_cv_image()")
+            return
         # 繪製 Bounding Box
         for obj in detected_objects:
             label = obj['label']
