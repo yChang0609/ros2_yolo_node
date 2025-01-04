@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'yolo_detection_node = yolo_pkg.node.main2:main',
+            'yolo_detection_node = yolo_pkg.main2:main',
         ],
     },
 )

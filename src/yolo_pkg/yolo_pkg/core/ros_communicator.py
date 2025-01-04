@@ -1,93 +1,96 @@
 from rclpy.node import Node
-from sensor_msgs.msg import CompressedImage, Image, Imu
+from sensor_msgs.msg import CompressedImage, Imu
 from std_msgs.msg import String, Bool
 from geometry_msgs.msg import PointStamped
+
 
 class RosCommunicator(Node):
     def __init__(self):
         super().__init__("RosCommunicator")
-        # --- Subscriber Initialization ---
 
-        # Camera Image Subscriber
-        self.latest_image = None
-        self.image_sub = self.create_subscription(
-            CompressedImage,
-            '/camera/image/compressed',
-            self._image_sub_callback,
-            10
-        )
+        # --- Subscriber and Publisher Initialization ---
+        self.subscriber_dict = {
+            "rgb_compress": {
+                "topic": "/camera/image/compressed",
+                "msg_type": CompressedImage,
+                "callback": self._image_sub_callback,
+            },
+            "imu": {
+                "topic": "/imu/data",
+                "msg_type": Imu,
+                "callback": self._imu_sub_callback,
+            },
+            "depth_image": {
+                "topic": "/camera/depth/compressed",
+                "msg_type": CompressedImage,
+                "callback": self._depth_image_sub_callback,
+            },
+            "target_label": {
+                "topic": "/target_label",
+                "msg_type": String,
+                "callback": self._target_label_sub_callback,
+            },
+        }
 
-        # IMU Data Subscriber
-        self.imu_orientation = None
-        self.latest_imu = None
-        self.imu_sub = self.create_subscription(
-            Imu,
-            '/imu/data',
-            self._imu_sub_callback,
-            10
-        )
+        self.publisher_dict = {
+            "yolo_image": {
+                "topic": "/yolo/detection/compressed",
+                "msg_type": CompressedImage,
+            },
+            "point": {
+                "topic": "/yolo/detection/position",
+                "msg_type": PointStamped,
+            },
+            "point_offset": {
+                "topic": "/yolo/detection/offset",
+                "msg_type": PointStamped,
+            },
+            "detection_status": {
+                "topic": "/yolo/detection/status",
+                "msg_type": Bool,
+            },
+        }
 
-        # Depth Image Subscriber
-        self.latest_depth_image = None
-        self.depth_image_sub = self.create_subscription(
-            CompressedImage,
-            '/camera/depth/compressed',
-            self._depth_image_sub_callback,
-            10
-        )
-        
-        # Target Label Subscriber
-        self.latest_target_label = None
-        self.target_label_sub = self.create_subscription(
-            String,
-            '/target_label',
-            self._target_label_sub_callback,
-            10
-        )
+        # Initialize Subscribers
+        self.latest_data = {}
+        for key, sub in self.subscriber_dict.items():
+            self.latest_data[key] = None
+            msg_type = sub["msg_type"]
+            topic = sub["topic"]
+            callback = sub["callback"]
+            self.create_subscription(msg_type, topic, callback, 10)
 
-        # --- Publisher Initialization ---
-
-        # YOLO Detection Results Publisher
-        self.yolo_image_pub = self.create_publisher(CompressedImage, '/yolo/detection/compressed', 10)
-        self.point_pub = self.create_publisher(PointStamped, '/yolo/detection/position', 10)
-        self.point_offset_pub = self.create_publisher(PointStamped, '/yolo/detection/offset', 10)
-        self.detection_status_pub = self.create_publisher(Bool, '/yolo/detection/status', 10)
+        # Initialize Publishers
+        self.publisher_instances = {}
+        for key, pub in self.publisher_dict.items():
+            self.publisher_instances[key] = self.create_publisher(
+                pub["msg_type"], pub["topic"], 10
+            )
 
     # --- Callback Functions ---
-
     def _image_sub_callback(self, msg):
-        self.latest_image = msg
+        self.latest_data["rgb_compress"] = msg
 
     def _imu_sub_callback(self, msg):
-        self.latest_imu = msg
-    
-    def _target_label_sub_callback(self, msg):
-        self.latest_target_label = msg
+        self.latest_data["imu"] = msg
 
     def _depth_image_sub_callback(self, msg):
-        self.latest_depth_image = msg
-    
+        self.latest_data["depth_image"] = msg
+
+    def _target_label_sub_callback(self, msg):
+        self.latest_data["target_label"] = msg
+
     # --- Getter Functions ---
-    
-    def get_latest_rgb_image(self):
-        return self.latest_image
-    
-    def get_latest_depth_image(self):
-        return self.latest_depth_image
-    
-    def get_latest_imu(self):
-        return self.latest_imu
-    
-    def get_latest_target_label(self):
-        return self.latest_target_label
-    
-    
+    def get_latest_data(self, key):
+        return self.latest_data.get(key)
+
     # --- Publisher Functions ---
-
-    def publish_yolo_image(self, image):
+    def publish_data(self, key, data):
         try:
-            self.yolo_image_pub.publish(image)
+            publisher = self.publisher_instances.get(key)
+            if publisher:
+                publisher.publish(data)
+            else:
+                self.get_logger().error(f"No publisher found for key: {key}")
         except Exception as e:
-            self.get_logger().error(f"Could not publish image: {e}")
-
-
+            self.get_logger().error(f"Could not publish data for {key}: {e}")

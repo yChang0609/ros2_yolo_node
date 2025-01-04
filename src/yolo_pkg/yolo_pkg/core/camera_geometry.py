@@ -1,6 +1,8 @@
 import numpy as np
 from yolo_pkg.core.camera_parameters import CameraParameters
-class CameraGeometry():
+
+
+class CameraGeometry:
     def __init__(self, yolo_depth_extractor):
         self.camera_intrinsics = CameraParameters().get_camera_intrinsics()
         self.yolo_depth_extractor = yolo_depth_extractor
@@ -31,10 +33,10 @@ class CameraGeometry():
         Returns:
             list: 每個物體的計算結果。
         """
-        fx = self.camera_intrinsics['fx']
-        fy = self.camera_intrinsics['fy']
-        cx = self.camera_intrinsics['cx']
-        cy = self.camera_intrinsics['cy']
+        fx = self.camera_intrinsics["fx"]
+        fy = self.camera_intrinsics["fy"]
+        cx = self.camera_intrinsics["cx"]
+        cy = self.camera_intrinsics["cy"]
 
         yolo_objects = self.yolo_depth_extractor.get_yolo_object_depth()
 
@@ -45,9 +47,9 @@ class CameraGeometry():
         results = []
 
         for obj in yolo_objects:
-            label = obj['label']
-            x1, y1, x2, y2 = obj['box']
-            depth_value = obj['depth']
+            label = obj["label"]
+            x1, y1, x2, y2 = obj["box"]
+            depth_value = obj["depth"]
 
             # 如果深度值無效，跳過該物體
             if depth_value <= 0:
@@ -59,8 +61,10 @@ class CameraGeometry():
             object_center_y = (y1 + y2) / 2
 
             # 使用傳入的計算函數處理物體
-            result = calculation_fn(object_center_x, object_center_y, depth_value, fx, fy, cx, cy)
-            results.append({'label': label, 'movement': result})
+            result = calculation_fn(
+                object_center_x, object_center_y, depth_value, fx, fy, cx, cy
+            )
+            results.append({"label": label, "movement": result})
 
         return results
 
