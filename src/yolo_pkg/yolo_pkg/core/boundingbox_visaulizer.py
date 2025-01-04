@@ -5,10 +5,10 @@ import time
 from datetime import datetime
 
 class BoundingBoxVisualizer():
-    def __init__(self, ros_communicator, object_detect_manager, camera_parameters):
+    def __init__(self, image_processor, yolo_bounding_box, ros_communicator):
         self.ros_communicator = ros_communicator
-        self.object_detect_manager = object_detect_manager
-        self.camera_parameters = camera_parameters.get_camera_intrinsics()
+        self.image_processor = image_processor
+        self.yolo_bounding_box = yolo_bounding_box
     
     def _draw_crosshair(self, image):
 
@@ -45,8 +45,8 @@ class BoundingBoxVisualizer():
         """
         # 獲取 RGB 影像
         # 獲取標籤與框座標（包含信心值過濾和目標標籤過濾）
-        detected_objects = self.object_detect_manager.get_tags_and_boxes()
-        image = self.object_detect_manager.get_cv_image()
+        detected_objects = self.yolo_bounding_box.get_tags_and_boxes()
+        image = self.image_processor.get_rgb_cv_image()
         if image is None:
             print("Error: No image received from object_detect_manager.get_cv_image()")
             return
@@ -82,7 +82,7 @@ class BoundingBoxVisualizer():
 
         try:
             # 將影像轉換為 ROS 訊息並發布
-            ros_image = self.object_detect_manager.get_ros_image()
+            ros_image = self.image_processor.get_rgb_ros_image(image)
             self.ros_communicator.publish_yolo_image(ros_image)
         except Exception as e:
             print(f"Failed to convert or publish image: {e}")

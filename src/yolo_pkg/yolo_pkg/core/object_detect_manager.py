@@ -1,6 +1,6 @@
 import contextlib
 import io
-from cv_bridge import CvBridge
+
 import numpy as np
 from sensor_msgs.msg import CompressedImage, Image, Imu
 
@@ -10,38 +10,16 @@ class ObjectDetectManager():
         self.ros_communicator = ros_communicator
         self.target_label = None
         self.image = None
-        self.bridge = CvBridge()
+        
 
-    def _convert_image_to_cv(self, img, mode):
-        """Converts ROS image to OpenCV format (np.ndarray)."""
-        try:
-            # 檢查影像格式並選擇對應的轉換方法
-            if isinstance(img, CompressedImage):
-                cv_image = self.bridge.compressed_imgmsg_to_cv2(img)
-            elif isinstance(img, Image):
-                encoding = 'bgr8' if mode == "rgb" else '16UC1'
-                cv_image = self.bridge.imgmsg_to_cv2(img, desired_encoding=encoding)
-            else:
-                raise TypeError("Unsupported image type. Expected CompressedImage or Image.")
-
-            if not isinstance(cv_image, np.ndarray):
-                raise TypeError("Converted image is not a valid numpy array.")
-
-            return cv_image
-
-        except Exception as e:
-            print(f"Error converting image: {e}")
-            return None
     
-    def get_depth_cv_image(self):
-        """Fetch and convert the depth image from ROS to OpenCV format."""
-        image = self.ros_communicator.get_latest_depth_image()
-        return self._convert_image_to_cv(image, mode="depth")
+    
+    
 
-    def _detect_objects(self, image):
-        with contextlib.redirect_stdout(io.StringIO()):
-            results = self.model(image, verbose=False)
-        return results
+    # def _detect_objects(self, image):
+    #     with contextlib.redirect_stdout(io.StringIO()):
+    #         results = self.model(image, verbose=False)
+    #     return results
 
     def get_cv_image(self):
         return self.image

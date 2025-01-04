@@ -18,5 +18,5 @@ class YoloDetectionModel():
             print("CUDA is not available. Using CPU.")
             self.model.to('cpu')
     
-    def get_model(self):
+    def get_yolo_model(self):
         return self.model

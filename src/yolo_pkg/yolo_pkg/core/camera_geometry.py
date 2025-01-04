@@ -1,9 +1,9 @@
 import numpy as np
-
+from yolo_pkg.core.camera_parameters import CameraParameters
 class CameraGeometry():
-    def __init__(self, camera_parameters, object_detect_manager):
-        self.camera_intrinsics = camera_parameters.get_camera_intrinsics()
-        self.object_detect_manager = object_detect_manager
+    def __init__(self, yolo_depth_extractor):
+        self.camera_intrinsics = CameraParameters().get_camera_intrinsics()
+        self.yolo_depth_extractor = yolo_depth_extractor
 
     def calculate_3d_position(self):
         """
@@ -36,7 +36,7 @@ class CameraGeometry():
         cx = self.camera_intrinsics['cx']
         cy = self.camera_intrinsics['cy']
 
-        yolo_objects = self.object_detect_manager.get_yolo_object_depth()
+        yolo_objects = self.yolo_depth_extractor.get_yolo_object_depth()
 
         if not yolo_objects:
             print("No YOLO objects detected or depth data unavailable.")
