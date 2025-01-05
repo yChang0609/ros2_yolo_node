@@ -24,6 +24,16 @@ def _init_ros_node():
     return node, executor, thread  # Return the node, executor, and thread
 
 
+def menu():
+    print("Select mode:")
+    print("1: Draw bounding boxes without screenshot.")
+    print("2: Draw bounding boxes with screenshot.")
+    print("Press Ctrl+C to exit.")
+
+    user_input = input("Enter your choice (1/2): ")
+    return user_input
+
+
 def main():
     """
     Main function to initialize the node and run the bounding box visualizer.
@@ -39,13 +49,26 @@ def main():
     )
     camera_geometry = CameraGeometry(yolo_depth_extractor)
 
+    user_input = menu()
+
     try:
         while True:
-            boundingbox_visualizer.draw_bounding_boxes(
-                screenshot=False, draw_crosshair=True, save_folder="screenshots"
-            )
-            a = yolo_depth_extractor.get_yolo_object_depth()
-            print(a)
+
+            if user_input == "1":
+                boundingbox_visualizer.draw_bounding_boxes(
+                    screenshot=False, draw_crosshair=True, save_folder="screenshots"
+                )
+            elif user_input == "2":
+                boundingbox_visualizer.draw_bounding_boxes(
+                    screenshot=True, draw_crosshair=True, save_folder="screenshots"
+                )
+            else:
+                print("Invalid input. Please enter 1 or 2.")
+
+            # Example action for yolo_depth_extractor (can be removed if not needed)
+            depth_data = yolo_depth_extractor.get_yolo_object_depth()
+            print(f"Object Depth: {depth_data}")
+
     except KeyboardInterrupt:
         print("Shutting down gracefully...")
     finally:
