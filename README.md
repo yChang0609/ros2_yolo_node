@@ -1,4 +1,20 @@
 # ros2_yolo_integration
+## yolo_pkg
+### Usage
+1. Run the provided activation script to start the container and prepare the environment
+```
+./yolo_activate.sh
+```
+2. Do colcon build and source ./install/setup.bash
+```
+r
+```
+3. Run yolo node
+```
+ros2 run yolo_example_pkg yolo_node
+```
+### class diagram
+
 ## yolo_example_pkg
 This is a ROS 2 project for integrating YOLO with ROS 2, providing functionality for real-time object detection and bounding box visualization.
 ### Features
