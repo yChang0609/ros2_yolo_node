@@ -14,7 +14,7 @@ r
 ros2 run yolo_example_pkg yolo_node
 ```
 ### class diagram
-
+![Logo](https://github.com/alianlbj23/ros2_yolo_integration/blob/dev/img/image_deal.jpeg?raw=true)
 ## yolo_example_pkg
 This is a ROS 2 project for integrating YOLO with ROS 2, providing functionality for real-time object detection and bounding box visualization.
 ### Features
