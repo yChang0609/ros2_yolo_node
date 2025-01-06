@@ -11,7 +11,7 @@ r
 ```
 3. Run yolo node
 ```
-ros2 run yolo_example_pkg yolo_node
+ros2 run yolo_pkg yolo_detection_node
 ```
 ### class diagram
 ![Logo](https://github.com/alianlbj23/ros2_yolo_integration/blob/dev/img/image_deal.jpeg?raw=true)
