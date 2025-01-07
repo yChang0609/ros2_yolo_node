@@ -8,37 +8,37 @@ from ultralytics import YOLO
 import os
 from ament_index_python.packages import get_package_share_directory
 
+
 class YoloDetectionNode(Node):
     def __init__(self):
-        super().__init__('yolo_detection_node')
+        super().__init__("yolo_detection_node")
 
         # 初始化 cv_bridge
         self.bridge = CvBridge()
 
         model_path = os.path.join(
-            get_package_share_directory('yolo_pkg'),
-            'models',
-            'yolov8n.pt'
+            get_package_share_directory("yolo_pkg"), "models", "yolov8n.pt"
         )
         self.model = YOLO(model_path)
-        self.model.to('cuda')
+        self.model.to("cuda")
 
         # 訂閱影像 Topic
         self.image_sub = self.create_subscription(
-            CompressedImage,
-            '/camera/image/compressed',
-            self.image_callback,
-            10
+            CompressedImage, "/camera/image/compressed", self.image_callback, 10
         )
 
         # 發佈處理後的影像 Topic
-        self.image_pub = self.create_publisher(CompressedImage, '/yolo/detection/compressed', 10)
+        self.image_pub = self.create_publisher(
+            CompressedImage, "/yolo/detection/compressed", 10
+        )
 
     def image_callback(self, msg):
         """接收影像並進行物體檢測"""
         # 將 ROS 影像消息轉換為 OpenCV 格式
         try:
-            cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            cv_image = self.bridge.compressed_imgmsg_to_cv2(
+                msg, desired_encoding="bgr8"
+            )
         except Exception as e:
             self.get_logger().error(f"Could not convert image: {e}")
             return
@@ -68,7 +68,15 @@ class YoloDetectionNode(Node):
                 # 繪製框和標籤
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 label = f"{class_name} {conf:.2f}"
-                cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(
+                    image,
+                    label,
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0),
+                    2,
+                )
 
         return image
 
@@ -80,6 +88,7 @@ class YoloDetectionNode(Node):
         except Exception as e:
             self.get_logger().error(f"Could not publish image: {e}")
 
+
 def main(args=None):
     rclpy.init(args=args)
     node = YoloDetectionNode()
@@ -87,5 +96,6 @@ def main(args=None):
     node.destroy_node()
     rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

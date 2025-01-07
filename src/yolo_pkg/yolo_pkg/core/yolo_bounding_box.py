@@ -8,7 +8,7 @@ class YoloBoundingBox:
         self.image_processor = image_processor
         self.yolo_model = YoloDetectionModel().get_yolo_model()
 
-    def get_tags_and_boxes(self, confidence_threshold=0.3):
+    def get_tags_and_boxes(self, confidence_threshold=0.6):
         self.target_label = self.get_target_label()
         self.image = self.image_processor.get_rgb_cv_image()
         if self.image is None:

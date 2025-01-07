@@ -50,7 +50,7 @@ class TestImageProcessor(unittest.TestCase):
 
         # Assert
         self.image_processor.bridge.imgmsg_to_cv2.assert_called_once_with(
-            mock_img, "16UC1"
+            mock_img, desired_encoding="16UC1"
         )
         self.assertIsInstance(result, np.ndarray)
         self.assertEqual(result.shape, (480, 640))
@@ -69,10 +69,10 @@ class TestImageProcessor(unittest.TestCase):
 
         # Assert
         self.mock_ros_communicator.get_latest_data.assert_called_once_with(
-            "depth_image"
+            "depth_image_raw"
         )
         self.image_processor.bridge.imgmsg_to_cv2.assert_called_once_with(
-            mock_img, "16UC1"
+            mock_img, desired_encoding="16UC1"
         )
         self.assertIsInstance(result, np.ndarray)
 

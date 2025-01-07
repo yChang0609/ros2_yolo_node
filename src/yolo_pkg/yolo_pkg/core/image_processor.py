@@ -14,12 +14,14 @@ class ImageProcessor:
     def _convert_image_from_ros_to_cv(self, img, mode):
         """Converts ROS image to OpenCV format (np.ndarray)."""
         try:
-            # 檢查影像格式並選擇對應的轉換方法
             if isinstance(img, CompressedImage):
                 cv_image = self.bridge.compressed_imgmsg_to_cv2(img)
             elif isinstance(img, Image):
                 encoding = "bgr8" if mode == "rgb" else "16UC1"
                 cv_image = self._convert_imgmsg_to_cv2(img, encoding)
+
+                if encoding == "16UC1":
+                    cv_image = cv_image.astype(np.float32) / 1000.0
             else:
                 raise TypeError("Unsupported image type.")
 
@@ -44,7 +46,7 @@ class ImageProcessor:
 
     def get_depth_cv_image(self):
         """Fetch and convert the depth image from ROS to OpenCV format."""
-        image = self.ros_communicator.get_latest_data("depth_image")
+        image = self.ros_communicator.get_latest_data("depth_image_raw")
         return self._convert_image_from_ros_to_cv(image, mode="depth")
 
     def get_rgb_cv_image(self):
