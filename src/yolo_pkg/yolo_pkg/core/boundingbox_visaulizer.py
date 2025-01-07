@@ -17,11 +17,10 @@ class BoundingBoxVisualizer:
         cx = width // 2
         cy = height // 2
 
-        crosshair_color = (0, 0, 255)  # 紅色
+        crosshair_color = (0, 0, 255)
         crosshair_thickness = 2
-        crosshair_length = 20  # 十字線長度
+        crosshair_length = 20
 
-        # 水平線
         cv2.line(
             image,
             (cx - crosshair_length, cy),
@@ -30,7 +29,6 @@ class BoundingBoxVisualizer:
             crosshair_thickness,
         )
 
-        # 垂直線
         cv2.line(
             image,
             (cx, cy - crosshair_length),
@@ -45,8 +43,6 @@ class BoundingBoxVisualizer:
         """
         根據 YOLO 偵測結果在影像上繪製 Bounding Box。
         """
-        # 獲取 RGB 影像
-        # 獲取標籤與框座標（包含信心值過濾和目標標籤過濾）
         detected_objects = self.yolo_bounding_box.get_tags_and_boxes()
         image = self.image_processor.get_rgb_cv_image()
         if image is None:

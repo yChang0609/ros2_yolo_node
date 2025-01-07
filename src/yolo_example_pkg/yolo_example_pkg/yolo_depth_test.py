@@ -8,42 +8,38 @@ from ultralytics import YOLO
 import os
 from ament_index_python.packages import get_package_share_directory
 
+
 class YoloDepthDetectionNode(Node):
     def __init__(self):
-        super().__init__('yolo_depth_detection_node')
+        super().__init__("yolo_depth_detection_node")
 
         # 初始化 cv_bridge
         self.bridge = CvBridge()
 
         # 加載 YOLO 模型
         model_path = os.path.join(
-            get_package_share_directory('yolo_pkg'),
-            'models',
-            'yolov8n.pt'
+            get_package_share_directory("yolo_pkg"), "models", "yolov8n.pt"
         )
         self.model = YOLO(model_path)
-        self.model.to('cuda')
+        self.model.to("cuda")
 
         # 訂閱 RGB 影像 Topic
         self.image_sub = self.create_subscription(
-            CompressedImage,
-            '/camera/image/compressed',
-            self.image_callback,
-            10
+            CompressedImage, "/camera/image/compressed", self.image_callback, 10
         )
-        self.depth_image_pub = self.create_publisher(CompressedImage, '/yolo/depth/detection/compressed', 10)
-
+        self.depth_image_pub = self.create_publisher(
+            CompressedImage, "/yolo/depth/detection/compressed", 10
+        )
 
         # 訂閱深度影像 Topic
         self.depth_sub = self.create_subscription(
-            Image,
-            '/depth_image_topic',
-            self.depth_callback,
-            10
+            Image, "/depth_image_topic", self.depth_callback, 10
         )
 
         # 發佈處理後的影像 Topic
-        self.image_pub = self.create_publisher(CompressedImage, '/yolo/detection/compressed', 10)
+        self.image_pub = self.create_publisher(
+            CompressedImage, "/yolo/detection/compressed", 10
+        )
 
         # 深度影像緩存
         self.depth_image = None
@@ -51,14 +47,18 @@ class YoloDepthDetectionNode(Node):
     def depth_callback(self, msg):
         """接收深度影像"""
         try:
-            self.depth_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+            self.depth_image = self.bridge.imgmsg_to_cv2(
+                msg, desired_encoding="passthrough"
+            )
         except Exception as e:
             self.get_logger().error(f"Could not convert depth image: {e}")
 
     def image_callback(self, msg):
         """接收影像並進行物體檢測"""
         try:
-            cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            cv_image = self.bridge.compressed_imgmsg_to_cv2(
+                msg, desired_encoding="bgr8"
+            )
         except Exception as e:
             self.get_logger().error(f"Could not convert image: {e}")
             return
@@ -103,7 +103,15 @@ class YoloDepthDetectionNode(Node):
                 # 繪製邊框和標籤
                 cv2.rectangle(depth_colored, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 label = f"{class_name} {conf:.2f} Depth: {depth:.2f}m"
-                cv2.putText(depth_colored, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(
+                    depth_colored,
+                    label,
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0),
+                    2,
+                )
 
         return depth_colored
 
@@ -114,7 +122,6 @@ class YoloDepthDetectionNode(Node):
             self.image_pub.publish(depth_msg)
         except Exception as e:
             self.get_logger().error(f"Could not publish depth image: {e}")
-
 
     def draw_bounding_boxes(self, image, results):
         """在影像上繪製 YOLO 檢測到的 Bounding Box 並顯示深度距離"""
@@ -136,10 +143,20 @@ class YoloDepthDetectionNode(Node):
                 # 繪製框和標籤
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 label = f"{class_name} {conf:.2f} Depth: {depth:.2f}m"
-                cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(
+                    image,
+                    label,
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0),
+                    2,
+                )
 
                 # 輸出深度資訊
-                self.get_logger().info(f"Detected {class_name} at depth {depth:.2f} meters.")
+                self.get_logger().info(
+                    f"Detected {class_name} at depth {depth:.2f} meters."
+                )
 
         return image
 
@@ -150,7 +167,7 @@ class YoloDepthDetectionNode(Node):
             return depth / 1000.0  # 將深度值從毫米轉換為米
         except IndexError:
             self.get_logger().warn(f"Invalid depth coordinates: ({x}, {y})")
-            return float('nan')
+            return float("nan")
 
     def publish_image(self, image):
         """將處理後的影像轉換並發佈到 ROS"""
@@ -160,6 +177,7 @@ class YoloDepthDetectionNode(Node):
         except Exception as e:
             self.get_logger().error(f"Could not publish image: {e}")
 
+
 def main(args=None):
     rclpy.init(args=args)
     node = YoloDepthDetectionNode()
@@ -167,5 +185,6 @@ def main(args=None):
     node.destroy_node()
     rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
