@@ -46,7 +46,7 @@ class ImageProcessor:
 
     def get_depth_cv_image(self):
         """Fetch and convert the depth image from ROS to OpenCV format."""
-        image = self.ros_communicator.get_latest_data("depth_image_raw")
+        image = self.ros_communicator.get_latest_data("depth_image")
         return self._convert_image_from_ros_to_cv(image, mode="depth")
 
     def get_rgb_cv_image(self):
