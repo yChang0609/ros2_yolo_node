@@ -33,16 +33,28 @@ elif [ "$ARCH" = "x86_64" ] || { [ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]; 
             registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
             /bin/bash
     else
-        # 非 macOS 使用 --gpus all
-        docker run -it --rm \
-            --network compose_my_bridge_network \
-            $PORT_MAPPING \
-            --gpus all \
-            --env-file .env \
-            -v "$(pwd)/src:/workspaces/src" \
-            -v "$(pwd)/screenshots:/workspaces/screenshots" \
-            registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
-            /bin/bash
+        # 檢查是否支援 --gpus all
+        if docker run --help | grep -q "--gpus"; then
+            docker run -it --rm \
+                --network compose_my_bridge_network \
+                $PORT_MAPPING \
+                --gpus all \
+                --env-file .env \
+                -v "$(pwd)/src:/workspaces/src" \
+                -v "$(pwd)/screenshots:/workspaces/screenshots" \
+                registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
+                /bin/bash
+        else
+            echo "--gpus all not supported, running without it."
+            docker run -it --rm \
+                --network compose_my_bridge_network \
+                $PORT_MAPPING \
+                --env-file .env \
+                -v "$(pwd)/src:/workspaces/src" \
+                -v "$(pwd)/screenshots:/workspaces/screenshots" \
+                registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
+                /bin/bash
+        fi
     fi
 else
     echo "Unsupported architecture: $ARCH"

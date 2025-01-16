@@ -7,6 +7,7 @@ import numpy as np
 from ultralytics import YOLO
 import os
 from ament_index_python.packages import get_package_share_directory
+import torch
 
 
 class YoloDetectionNode(Node):
@@ -17,10 +18,13 @@ class YoloDetectionNode(Node):
         self.bridge = CvBridge()
 
         model_path = os.path.join(
-            get_package_share_directory("yolo_pkg"), "models", "yolov8n.pt"
+            get_package_share_directory("yolo_example_pkg"), "models", "yolov8n.pt"
         )
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print("Using device : ", device)
         self.model = YOLO(model_path)
-        self.model.to("cuda")
+        self.model.to(device)
 
         # 訂閱影像 Topic
         self.image_sub = self.create_subscription(
