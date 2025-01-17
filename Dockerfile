@@ -30,9 +30,6 @@ RUN apt-get update && apt-get install -y \
     --fix-missing \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# **升級 setuptools，確保與 Foxy 相容**
-RUN pip install --upgrade setuptools==58.2.0
-
 # 安裝 OpenCV 和 Boost 的依賴項
 RUN apt-get update && apt-get install -y \
     python3-opencv \
@@ -61,5 +58,8 @@ RUN cd ~/ros2_ws && \
 # 設定環境變數以啟用 ROS 2 和 cv_bridge
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
     echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
+
+# **升級 setuptools，確保與 Foxy 相容**
+RUN pip install --upgrade setuptools==58.2.0
 
 CMD ["bash"]
