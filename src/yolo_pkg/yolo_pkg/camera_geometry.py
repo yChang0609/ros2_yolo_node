@@ -1,5 +1,5 @@
 import numpy as np
-from yolo_pkg.core.camera_parameters import CameraParameters
+from yolo_pkg.camera_parameters import CameraParameters
 
 
 class CameraGeometry:

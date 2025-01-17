@@ -1,11 +1,11 @@
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
-from yolo_pkg.core.ros_communicator import RosCommunicator
-from yolo_pkg.core.image_processor import ImageProcessor
-from yolo_pkg.core.yolo_depth_extractor import YoloDepthExtractor
-from yolo_pkg.core.yolo_bounding_box import YoloBoundingBox
-from yolo_pkg.core.boundingbox_visaulizer import BoundingBoxVisualizer
-from yolo_pkg.core.camera_geometry import CameraGeometry
+from yolo_pkg.ros_communicator import RosCommunicator
+from yolo_pkg.image_processor import ImageProcessor
+from yolo_pkg.yolo_depth_extractor import YoloDepthExtractor
+from yolo_pkg.yolo_bounding_box import YoloBoundingBox
+from yolo_pkg.boundingbox_visaulizer import BoundingBoxVisualizer
+from yolo_pkg.camera_geometry import CameraGeometry
 import threading
 
 

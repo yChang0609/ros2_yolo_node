@@ -1,4 +1,4 @@
-from yolo_pkg.core.yolo_detect_model import YoloDetectionModel
+from yolo_pkg.yolo_detect_model import YoloDetectionModel
 import contextlib
 import io
 
