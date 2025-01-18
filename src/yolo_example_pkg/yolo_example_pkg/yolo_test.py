@@ -28,7 +28,7 @@ class YoloDetectionNode(Node):
 
         # 訂閱影像 Topic
         self.image_sub = self.create_subscription(
-            CompressedImage, "/camera/image/compressed", self.image_callback, 10
+            CompressedImage, "/out/compressed", self.image_callback, 10
         )
 
         # 發佈處理後的影像 Topic

@@ -60,6 +60,10 @@ RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
     echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
 
 # **升級 setuptools，確保與 Foxy 相容**
-RUN pip install --upgrade setuptools==58.2.0
+RUN python3 -m pip install --no-cache-dir --upgrade setuptools==58.2.0
 
-CMD ["bash"]
+# **新增 `r` 指令，讓使用者輸入 `r` 就能執行 colcon build**
+RUN echo 'alias r="cd /workspace && colcon build && source ./install/setup.bash"' >> ~/.bashrc
+
+# 確保容器啟動時也降級 setuptools
+CMD ["bash", "-c", "python3 -m pip install --upgrade setuptools==58.2.0 && bash"]
