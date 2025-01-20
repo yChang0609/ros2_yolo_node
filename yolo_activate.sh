@@ -19,7 +19,7 @@ if [ "$ARCH" = "aarch64" ]; then
         --runtime=nvidia \
         --env-file .env \
         -v "$(pwd)/src:/workspace/src" \
-        registry.screamtrumpet.csie.ncku.edu.tw/screamlab/jpack5_yolo_opencv_image:latest \
+        ghcr.io/screamlab/jpack5_yolo_opencv_image:latest \
         /bin/bash
 elif [ "$ARCH" = "x86_64" ] || ([ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]); then
     echo "Detected architecture: amd64 or macOS arm64"
