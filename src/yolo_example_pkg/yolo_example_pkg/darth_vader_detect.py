@@ -59,8 +59,8 @@ class YoloDetectionNode(Node):
             Float32MultiArray, "/yolo/target_info", 10
         )
 
-        self.ten_depth_pub = self.create_publisher(
-            Float32MultiArray, "/camera/ten_depth_values", 10
+        self.x_multi_depth_pub = self.create_publisher(
+            Float32MultiArray, "/camera/x_multi_depth_values", 10
         )
 
         # 設定要過濾標籤 (如果為空，那就不過濾)
@@ -68,6 +68,9 @@ class YoloDetectionNode(Node):
 
         # 設定 YOLO 可信度閾值
         self.conf_threshold = 0.5  # 可以修改這個值來調整可信度
+
+        # 相機畫面中央高度上切成 n 個等距水平點。
+        self.x_num_splits = 20
 
     def depth_callback_raw(self, msg):
         """接收 **無壓縮** 深度圖"""
@@ -109,7 +112,7 @@ class YoloDetectionNode(Node):
         processed_image = self.draw_bounding_boxes(cv_image, results)
 
         # 取得影像中心深度並發布
-        self.publish_ten_depths(processed_image)
+        self.publish_x_multi_depths(processed_image)
 
         # 發佈處理後的影像
         self.publish_image(processed_image)
@@ -139,10 +142,10 @@ class YoloDetectionNode(Node):
             2,
         )
 
-        # 計算橫線上的 10 個等分點
-        segment_length = width // 10
+        # 計算橫線上的 n 個等分點
+        segment_length = width // self.x_num_splits
         points = [
-            (i * segment_length, cy_center) for i in range(11)
+            (i * segment_length, cy_center) for i in range(self.x_num_splits + 1)
         ]  # 11 個點表示 10 段區間的端點
 
         # 在每個等分點繪製垂直的短黑線
@@ -240,16 +243,16 @@ class YoloDetectionNode(Node):
         msg.data = [float(found), float(distance), float(delta_x)]
         self.target_pub.publish(msg)
 
-    def publish_ten_depths(self, image):
+    def publish_x_multi_depths(self, image):
         """
-        取得畫面 10 個等分點的深度並發布
+        取得畫面 n 個等分點的深度並發布
         """
         height, width = image.shape[:2]
         cy_center = height // 2  # 固定 Y 座標在畫面中心
-        segment_length = width // 10
+        segment_length = width // self.x_num_splits
 
         # 計算 10 個等分點的 X 座標
-        points = [(i * segment_length, cy_center) for i in range(10)]
+        points = [(i * segment_length, cy_center) for i in range(self.x_num_splits)]
 
         # 取得每個等分點的深度值
         depth_values = [self.get_depth_at(x, cy_center) for x, _ in points]
@@ -257,7 +260,7 @@ class YoloDetectionNode(Node):
         # 以 Float32MultiArray 發布
         depth_msg = Float32MultiArray()
         depth_msg.data = depth_values
-        self.ten_depth_pub.publish(depth_msg)
+        self.x_multi_depth_pub.publish(depth_msg)
 
 
 def main(args=None):
