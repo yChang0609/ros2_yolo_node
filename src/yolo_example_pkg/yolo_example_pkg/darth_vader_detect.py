@@ -156,6 +156,7 @@ class YoloDetectionNode(Node):
         # 一開始預設沒找到目標
         found_target = 0
         target_distance = 0.0
+        delta_x = 0.0
         image, points = self.draw_cross(image)
         for result in results:
             for box in result.boxes:
@@ -181,7 +182,6 @@ class YoloDetectionNode(Node):
 
                 # ------ 計算與影像中心的偏移量 ------
                 delta_x = cx - points[4][0]
-                self.publish_target_info(found_target, target_distance, delta_x)
 
                 # 繪製框和標籤
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -196,7 +196,7 @@ class YoloDetectionNode(Node):
                     (0, 255, 0),
                     2,
                 )
-
+        self.publish_target_info(found_target, target_distance, delta_x)
         return image
 
     def get_depth_at(self, x, y):
