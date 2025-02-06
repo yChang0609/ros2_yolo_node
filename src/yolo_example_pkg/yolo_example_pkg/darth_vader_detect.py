@@ -59,6 +59,10 @@ class YoloDetectionNode(Node):
             Float32MultiArray, "/yolo/target_info", 10
         )
 
+        self.center_depth_pub = self.create_publisher(
+            Float32MultiArray, "/camera/center_depth", 10
+        )
+
         # 設定要過濾標籤 (如果為空，那就不過濾)
         self.allowed_labels = {"Vaider"}
 
@@ -104,15 +108,40 @@ class YoloDetectionNode(Node):
         # 繪製 Bounding Box
         processed_image = self.draw_bounding_boxes(cv_image, results)
 
+        # 取得影像中心深度並發布
+        self.publish_center_depth(processed_image)
+
         # 發佈處理後的影像
         self.publish_image(processed_image)
+
+    def draw_cross(self, image):
+        height, width = image.shape[:2]
+        cx_center = width // 2
+        cy_center = height // 2
+        # 繪製橫線
+        cv2.line(
+            image,
+            (cx_center - 10, cy_center),
+            (cx_center + 10, cy_center),
+            (0, 0, 255),
+            2,
+        )
+        # 繪製直線
+        cv2.line(
+            image,
+            (cx_center, cy_center - 10),
+            (cx_center, cy_center + 10),
+            (0, 0, 255),
+            2,
+        )
+        return image, [cx_center, cy_center]
 
     def draw_bounding_boxes(self, image, results):
         """在影像上繪製 YOLO 檢測到的 Bounding Box"""
         # 一開始預設沒找到目標
         found_target = 0
         target_distance = 0.0
-
+        image, cross_position = self.draw_cross(image)
         for result in results:
             for box in result.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -135,7 +164,9 @@ class YoloDetectionNode(Node):
                 target_distance = depth_value
                 depth_text = f"{depth_value:.2f}m" if depth_value else "N/A"
 
-                self.publish_target_info(found_target, target_distance)
+                # ------ 計算與影像中心的偏移量 ------
+                delta_x = cx - cross_position[0]
+                self.publish_target_info(found_target, target_distance, delta_x)
 
                 # 繪製框和標籤
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -188,11 +219,25 @@ class YoloDetectionNode(Node):
         except Exception as e:
             self.get_logger().error(f"Could not publish image: {e}")
 
-    def publish_target_info(self, found, distance):
+    def publish_target_info(self, found, distance, delta_x):
         """發佈目標資訊 (找到目標, 距離)"""
         msg = Float32MultiArray()
-        msg.data = [float(found), float(distance)]
+        msg.data = [float(found), float(distance), float(delta_x)]
         self.target_pub.publish(msg)
+
+    def publish_center_depth(self, image):
+        """
+        取得畫面正中央 (cx_center, cy_center) 的深度並發布
+        """
+        height, width = image.shape[:2]
+        cx_center = width // 2
+        cy_center = height // 2
+        depth_center = self.get_depth_at(cx_center, cy_center)
+
+        # 以 Float32MultiArray 發布
+        center_depth_msg = Float32MultiArray()
+        center_depth_msg.data = [float(depth_center)]
+        self.center_depth_pub.publish(center_depth_msg)
 
 
 def main(args=None):
