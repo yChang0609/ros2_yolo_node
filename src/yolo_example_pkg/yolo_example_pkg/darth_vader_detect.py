@@ -59,8 +59,8 @@ class YoloDetectionNode(Node):
             Float32MultiArray, "/yolo/target_info", 10
         )
 
-        self.center_depth_pub = self.create_publisher(
-            Float32MultiArray, "/camera/center_depth", 10
+        self.ten_depth_pub = self.create_publisher(
+            Float32MultiArray, "/camera/ten_depth_values", 10
         )
 
         # 設定要過濾標籤 (如果為空，那就不過濾)
@@ -109,23 +109,19 @@ class YoloDetectionNode(Node):
         processed_image = self.draw_bounding_boxes(cv_image, results)
 
         # 取得影像中心深度並發布
-        self.publish_center_depth(processed_image)
+        self.publish_ten_depths(processed_image)
 
         # 發佈處理後的影像
         self.publish_image(processed_image)
 
     def draw_cross(self, image):
+        # 回傳繪製十字架的影像和畫面正中間的像素座標
         height, width = image.shape[:2]
         cx_center = width // 2
         cy_center = height // 2
         # 繪製橫線
-        cv2.line(
-            image,
-            (cx_center - 10, cy_center),
-            (cx_center + 10, cy_center),
-            (0, 0, 255),
-            2,
-        )
+        cv2.line(image, (0, cy_center), (width, cy_center), (0, 0, 255), 2)
+
         # 繪製直線
         cv2.line(
             image,
@@ -134,14 +130,33 @@ class YoloDetectionNode(Node):
             (0, 0, 255),
             2,
         )
-        return image, [cx_center, cy_center]
+
+        cv2.line(
+            image,
+            (cx_center, cy_center - 10),
+            (cx_center, cy_center + 10),
+            (0, 0, 255),
+            2,
+        )
+
+        # 計算橫線上的 10 個等分點
+        segment_length = width // 10
+        points = [
+            (i * segment_length, cy_center) for i in range(11)
+        ]  # 11 個點表示 10 段區間的端點
+
+        # 在每個等分點繪製垂直的短黑線
+        for x, y in points:
+            cv2.line(image, (x, y - 10), (x, y + 10), (0, 0, 0), 2)  # 黑色垂直線
+
+        return image, points
 
     def draw_bounding_boxes(self, image, results):
         """在影像上繪製 YOLO 檢測到的 Bounding Box"""
         # 一開始預設沒找到目標
         found_target = 0
         target_distance = 0.0
-        image, cross_position = self.draw_cross(image)
+        image, points = self.draw_cross(image)
         for result in results:
             for box in result.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -165,7 +180,7 @@ class YoloDetectionNode(Node):
                 depth_text = f"{depth_value:.2f}m" if depth_value else "N/A"
 
                 # ------ 計算與影像中心的偏移量 ------
-                delta_x = cx - cross_position[0]
+                delta_x = cx - points[4][0]
                 self.publish_target_info(found_target, target_distance, delta_x)
 
                 # 繪製框和標籤
@@ -225,19 +240,24 @@ class YoloDetectionNode(Node):
         msg.data = [float(found), float(distance), float(delta_x)]
         self.target_pub.publish(msg)
 
-    def publish_center_depth(self, image):
+    def publish_ten_depths(self, image):
         """
-        取得畫面正中央 (cx_center, cy_center) 的深度並發布
+        取得畫面 10 個等分點的深度並發布
         """
         height, width = image.shape[:2]
-        cx_center = width // 2
-        cy_center = height // 2
-        depth_center = self.get_depth_at(cx_center, cy_center)
+        cy_center = height // 2  # 固定 Y 座標在畫面中心
+        segment_length = width // 10
+
+        # 計算 10 個等分點的 X 座標
+        points = [(i * segment_length, cy_center) for i in range(10)]
+
+        # 取得每個等分點的深度值
+        depth_values = [self.get_depth_at(x, cy_center) for x, _ in points]
 
         # 以 Float32MultiArray 發布
-        center_depth_msg = Float32MultiArray()
-        center_depth_msg.data = [float(depth_center)]
-        self.center_depth_pub.publish(center_depth_msg)
+        depth_msg = Float32MultiArray()
+        depth_msg.data = depth_values
+        self.ten_depth_pub.publish(depth_msg)
 
 
 def main(args=None):
