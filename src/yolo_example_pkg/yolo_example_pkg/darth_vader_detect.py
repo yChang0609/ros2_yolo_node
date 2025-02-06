@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage, Image
+from std_msgs.msg import Float32MultiArray
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
@@ -53,8 +54,13 @@ class YoloDetectionNode(Node):
             CompressedImage, "/yolo/detection/compressed", 10
         )
 
+        # 發布 目標檢測數據 (是否找到目標 + 距離)
+        self.target_pub = self.create_publisher(
+            Float32MultiArray, "/yolo/target_info", 10
+        )
+
         # 設定要過濾標籤 (如果為空，那就不過濾)
-        self.allowed_labels = {}
+        self.allowed_labels = {"Vaider"}
 
         # 設定 YOLO 可信度閾值
         self.conf_threshold = 0.5  # 可以修改這個值來調整可信度
@@ -103,6 +109,10 @@ class YoloDetectionNode(Node):
 
     def draw_bounding_boxes(self, image, results):
         """在影像上繪製 YOLO 檢測到的 Bounding Box"""
+        # 一開始預設沒找到目標
+        found_target = 0
+        target_distance = 0.0
+
         for result in results:
             for box in result.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -113,16 +123,24 @@ class YoloDetectionNode(Node):
                 # 只保留設定內的標籤
                 if self.allowed_labels and class_name not in self.allowed_labels:
                     continue
+
                 # 計算 Bounding Box 正中心點
                 cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
 
+                # 如果符合標籤，表示找到目標
+                found_target = 1
+
                 # 優先使用無壓縮的深度圖
                 depth_value = self.get_depth_at(cx, cy)
+                target_distance = depth_value
                 depth_text = f"{depth_value:.2f}m" if depth_value else "N/A"
+
+                self.publish_target_info(found_target, target_distance)
 
                 # 繪製框和標籤
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 label = f"{class_name} {conf:.2f} Depth: {depth_text}"
+
                 cv2.putText(
                     image,
                     label,
@@ -136,7 +154,10 @@ class YoloDetectionNode(Node):
         return image
 
     def get_depth_at(self, x, y):
-        """取得指定像素的深度值，轉換為米 (m)"""
+        """
+        取得指定像素的深度值，轉換為米 (m)
+        若深度出問題，回傳 -1
+        """
         # **優先使用無壓縮的深度圖**
         depth_image = (
             self.latest_depth_image_raw
@@ -145,7 +166,7 @@ class YoloDetectionNode(Node):
         )
 
         if depth_image is None:
-            return None
+            return -1.0
 
         # 如果深度影像為三通道，那只取第一個數值
         if len(depth_image.shape) == 3:
@@ -153,11 +174,11 @@ class YoloDetectionNode(Node):
 
         try:
             depth_value = depth_image[y, x]
-            if depth_value == 0:  # 無效深度
-                return None
+            if depth_value < 0.0001 or depth_value == 0.0:  # 無效深度
+                return -1.0
             return depth_value / 1000.0  # 16-bit 深度圖通常單位為 mm，轉換為 m
         except IndexError:
-            return None
+            return -1.0
 
     def publish_image(self, image):
         """將處理後的影像轉換並發佈到 ROS"""
@@ -166,6 +187,12 @@ class YoloDetectionNode(Node):
             self.image_pub.publish(compressed_msg)
         except Exception as e:
             self.get_logger().error(f"Could not publish image: {e}")
+
+    def publish_target_info(self, found, distance):
+        """發佈目標資訊 (找到目標, 距離)"""
+        msg = Float32MultiArray()
+        msg.data = [float(found), float(distance)]
+        self.target_pub.publish(msg)
 
 
 def main(args=None):
