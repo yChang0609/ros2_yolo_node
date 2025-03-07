@@ -1,14 +1,20 @@
 from yolo_pkg.yolo_detect_model import YoloDetectionModel
+from yolo_pkg.yolo_segmentation_model import YoloSegmentationModel
 import contextlib
 import io
+
+CONFIDENCE = 0.6
 
 
 class YoloBoundingBox:
     def __init__(self, image_processor):
         self.image_processor = image_processor
         self.yolo_model = YoloDetectionModel().get_yolo_model()
+        self.yolo_segmentation_model = (
+            YoloSegmentationModel().get_yolo_segmentation_model()
+        )
 
-    def get_tags_and_boxes(self, confidence_threshold=0.6):
+    def get_tags_and_boxes(self, confidence_threshold=CONFIDENCE):
         self.target_label = self.get_target_label()
         self.image = self.image_processor.get_rgb_cv_image()
         if self.image is None:
@@ -40,9 +46,63 @@ class YoloBoundingBox:
 
         return detected_objects
 
+    def get_segmentation_data(self, confidence_threshold=CONFIDENCE):
+        """
+        Returns segmentation masks for detected objects.
+        """
+        self.image = self.image_processor.get_rgb_cv_image()
+        if self.image is None:
+            print("Error: No image received from image_processor")
+            return []
+
+        segmentation_results = self._yolo_segmentation_filter(self.image)
+
+        # 🔹 Check if results are valid
+        if not segmentation_results or segmentation_results[0].masks is None:
+            print("Warning: No segmentation masks detected.")
+            return []  # Return empty list if no masks found
+
+        segmentation_objects = []
+        for result in segmentation_results:
+            if result.masks is None or result.boxes is None:
+                continue  # Skip empty results
+
+            # Convert masks to usable format
+            masks_np = result.masks.data.cpu().numpy()  # Convert to NumPy array
+
+            for i, (box, cls, conf) in enumerate(
+                zip(
+                    result.boxes.xyxy.cpu().numpy(),  # Bounding box in pixel coordinates
+                    result.boxes.cls.cpu().numpy(),  # Class IDs
+                    result.boxes.conf.cpu().numpy(),  # Confidence scores
+                )
+            ):
+                if float(conf) < confidence_threshold:
+                    continue
+
+                class_id = int(cls)
+                class_name = self.yolo_segmentation_model.names[class_id]
+
+                segmentation_objects.append(
+                    {
+                        "label": class_name,
+                        "confidence": float(conf),
+                        "box": tuple(map(int, box)),
+                        "mask": masks_np[i],  # Assign the correct mask from the array
+                    }
+                )
+
+        # print("Segmentation Data:", segmentation_objects)  # Debugging Output
+        return segmentation_objects
+
     def _yolo_msg_filter(self, img):
         with contextlib.redirect_stdout(io.StringIO()):
             results = self.yolo_model(img, verbose=False)
+        return results
+
+    def _yolo_segmentation_filter(self, img):
+        with contextlib.redirect_stdout(io.StringIO()):
+            results = self.yolo_segmentation_model(img, verbose=False)
         return results
 
     def get_target_label(self):

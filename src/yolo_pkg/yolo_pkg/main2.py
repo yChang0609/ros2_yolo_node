@@ -29,9 +29,10 @@ def menu():
     print("1: Draw bounding boxes without screenshot.")
     print("2: Draw bounding boxes with screenshot.")
     print("3: 5 fps screenshot.")
+    print("4: segmentation.")
     print("Press Ctrl+C to exit.")
 
-    user_input = input("Enter your choice (1/3): ")
+    user_input = input("Enter your choice (1/4): ")
     return user_input
 
 
@@ -57,7 +58,9 @@ def main():
 
             if user_input == "1":
                 boundingbox_visualizer.draw_bounding_boxes(
-                    screenshot=False, draw_crosshair=True, save_folder="screenshots"
+                    screenshot=False,
+                    draw_crosshair=True,
+                    save_folder="screenshots",
                 )
             elif user_input == "2":
                 boundingbox_visualizer.draw_bounding_boxes(
@@ -68,6 +71,14 @@ def main():
                     screenshot=False, draw_crosshair=True, save_folder="screenshots"
                 )
                 boundingbox_visualizer.save_fps_screenshot()
+
+            elif user_input == "4":
+                boundingbox_visualizer.draw_bounding_boxes(
+                    screenshot=False,
+                    draw_crosshair=True,
+                    save_folder="screenshots",
+                    segmentation_status="open",
+                )
             else:
                 print("Invalid input. Please enter 1 or 2.")
 

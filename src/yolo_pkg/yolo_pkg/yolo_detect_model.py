@@ -10,12 +10,16 @@ class YoloDetectionModel:
             get_package_share_directory("yolo_pkg"), "models", "yolov8n.pt"
         )
         self.model = YOLO(model_path)
+        print()
+        print("*" * 10)
+        print("yolo bounding : ")
         if torch.cuda.is_available():
             print("CUDA is available. Using GPU.")
             self.model.to("cuda")
         else:
             print("CUDA is not available. Using CPU.")
             self.model.to("cpu")
+        print("*" * 10)
 
     def get_yolo_model(self):
         return self.model

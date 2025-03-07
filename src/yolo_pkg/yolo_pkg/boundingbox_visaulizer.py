@@ -40,6 +40,7 @@ class BoundingBoxVisualizer:
             crosshair_thickness,
         )
 
+    # Use this function can 5fps
     def save_fps_screenshot(self, save_folder="fps_screenshots"):
         """
         Saves full-frame images at 5 FPS without bounding boxes.
@@ -63,7 +64,11 @@ class BoundingBoxVisualizer:
         print(f"Saved full-frame screenshot: {screenshot_path}")
 
     def draw_bounding_boxes(
-        self, draw_crosshair=False, screenshot=False, save_folder="screenshots"
+        self,
+        draw_crosshair=False,
+        screenshot=False,
+        save_folder="screenshots",
+        segmentation_status="close",
     ):
         """
         根據 YOLO 偵測結果在影像上繪製 Bounding Box。
@@ -73,7 +78,35 @@ class BoundingBoxVisualizer:
         if image is None:
             print("Error: No image received from image_processor")
             return
-        # 繪製 Bounding Box
+        self.yolo_bounding_box.get_segmentation_data()
+        if segmentation_status == "open":
+            segmentation_objects = self.yolo_bounding_box.get_segmentation_data()
+
+            for obj in segmentation_objects:
+                mask = obj["mask"]
+                label = obj["label"]
+                x1, y1, x2, y2 = obj["box"]
+
+                # Overlay mask with transparency
+                mask_colored = np.zeros_like(image, dtype=np.uint8)
+                mask_colored[mask > 0] = (0, 255, 0)  # Green mask
+
+                image = cv2.addWeighted(image, 1, mask_colored, 0.5, 0)
+
+                # Draw bounding box around segmentation
+                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+                # Draw label text
+                cv2.putText(
+                    image,
+                    label,
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0),
+                    2,
+                )
+
         for obj in detected_objects:
             label = obj["label"]
             confidence = obj["confidence"]
