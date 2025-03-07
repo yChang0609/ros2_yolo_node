@@ -28,9 +28,10 @@ def menu():
     print("Select mode:")
     print("1: Draw bounding boxes without screenshot.")
     print("2: Draw bounding boxes with screenshot.")
+    print("3: 5 fps screenshot.")
     print("Press Ctrl+C to exit.")
 
-    user_input = input("Enter your choice (1/2): ")
+    user_input = input("Enter your choice (1/3): ")
     return user_input
 
 
@@ -62,12 +63,17 @@ def main():
                 boundingbox_visualizer.draw_bounding_boxes(
                     screenshot=True, draw_crosshair=True, save_folder="screenshots"
                 )
+            elif user_input == "3":
+                boundingbox_visualizer.draw_bounding_boxes(
+                    screenshot=False, draw_crosshair=True, save_folder="screenshots"
+                )
+                boundingbox_visualizer.save_fps_screenshot()
             else:
                 print("Invalid input. Please enter 1 or 2.")
 
             # Example action for yolo_depth_extractor (can be removed if not needed)
-            depth_data = yolo_depth_extractor.get_yolo_object_depth()
-            print(f"Object Depth: {depth_data}")
+            # depth_data = yolo_depth_extractor.get_yolo_object_depth()
+            # print(f"Object Depth: {depth_data}")
 
     except KeyboardInterrupt:
         print("Shutting down gracefully...")

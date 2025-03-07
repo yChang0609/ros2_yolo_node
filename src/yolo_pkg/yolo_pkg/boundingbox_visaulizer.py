@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 from datetime import datetime
+import time
 
 
 class BoundingBoxVisualizer:
@@ -9,6 +10,8 @@ class BoundingBoxVisualizer:
         self.ros_communicator = ros_communicator
         self.image_processor = image_processor
         self.yolo_bounding_box = yolo_bounding_box
+        self.last_screenshot_time = 0
+        self.screenshot_interval = 1 / 5
 
     def _draw_crosshair(self, image):
 
@@ -36,6 +39,28 @@ class BoundingBoxVisualizer:
             crosshair_color,
             crosshair_thickness,
         )
+
+    def save_fps_screenshot(self, save_folder="fps_screenshots"):
+        """
+        Saves full-frame images at 5 FPS without bounding boxes.
+        """
+        image = self.image_processor.get_rgb_cv_image()
+        if image is None:
+            print("Error: No image received from image_processor")
+            return
+
+        current_time = time.time()
+        if current_time - self.last_screenshot_time < self.screenshot_interval:
+            return
+
+        self.last_screenshot_time = current_time
+
+        os.makedirs(save_folder, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        screenshot_path = os.path.join(save_folder, f"full_frame_{timestamp}.png")
+        cv2.imwrite(screenshot_path, image)
+        print(f"Saved full-frame screenshot: {screenshot_path}")
 
     def draw_bounding_boxes(
         self, draw_crosshair=False, screenshot=False, save_folder="screenshots"

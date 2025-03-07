@@ -31,6 +31,7 @@ elif [ "$ARCH" = "x86_64" ] || ([ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]); 
             --env-file .env \
             -v "$(pwd)/src:/workspaces/src" \
             -v "$(pwd)/screenshots:/workspaces/screenshots" \
+            -v "$(pwd)/fps_screenshots:/workspaces/fps_screenshots" \
             registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
             /bin/bash
     else
@@ -42,6 +43,7 @@ elif [ "$ARCH" = "x86_64" ] || ([ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]); 
             --env-file .env \
             -v "$(pwd)/src:/workspaces/src" \
             -v "$(pwd)/screenshots:/workspaces/screenshots" \
+            -v "$(pwd)/fps_screenshots:/workspaces/fps_screenshots" \
             registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
             /bin/bash
 
@@ -54,6 +56,7 @@ elif [ "$ARCH" = "x86_64" ] || ([ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]); 
                 --env-file .env \
                 -v "$(pwd)/src:/workspaces/src" \
                 -v "$(pwd)/screenshots:/workspaces/screenshots" \
+                -v "$(pwd)/fps_screenshots:/workspaces/fps_screenshots" \
                 registry.screamtrumpet.csie.ncku.edu.tw/screamlab/pros_cameraapi:0.0.2 \
                 /bin/bash
         fi
