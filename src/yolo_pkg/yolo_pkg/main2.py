@@ -61,6 +61,7 @@ def main():
                     screenshot=False,
                     draw_crosshair=True,
                     save_folder="screenshots",
+                    bounding_status="open",
                 )
             elif user_input == "2":
                 boundingbox_visualizer.draw_bounding_boxes(
@@ -78,6 +79,7 @@ def main():
                     draw_crosshair=True,
                     save_folder="screenshots",
                     segmentation_status="open",
+                    bounding_status="open",
                 )
             else:
                 print("Invalid input. Please enter 1 or 2.")

@@ -69,6 +69,7 @@ class BoundingBoxVisualizer:
         screenshot=False,
         save_folder="screenshots",
         segmentation_status="close",
+        bounding_status="close",  # Controls all bounding boxes
     ):
         """
         根據 YOLO 偵測結果在影像上繪製 Bounding Box。
@@ -79,6 +80,7 @@ class BoundingBoxVisualizer:
             print("Error: No image received from image_processor")
             return
         self.yolo_bounding_box.get_segmentation_data()
+
         if segmentation_status == "open":
             segmentation_objects = self.yolo_bounding_box.get_segmentation_data()
 
@@ -87,63 +89,63 @@ class BoundingBoxVisualizer:
                 label = obj["label"]
                 x1, y1, x2, y2 = obj["box"]
 
-                # Overlay mask with transparency
+                # Overlay mask with transparency (mask is still drawn)
                 mask_colored = np.zeros_like(image, dtype=np.uint8)
                 mask_colored[mask > 0] = (0, 255, 0)  # Green mask
-
                 image = cv2.addWeighted(image, 1, mask_colored, 0.5, 0)
 
-                # Draw bounding box around segmentation
+                # **Only draw segmentation bounding box if bounding_status is open**
+                if bounding_status == "open":
+                    cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(
+                        image,
+                        label,
+                        (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        2,
+                    )
+
+        # **Check if bounding_status is "open" before drawing YOLO bounding boxes**
+        if bounding_status == "open":
+            for obj in detected_objects:
+                label = obj["label"]
+                confidence = obj["confidence"]
+                x1, y1, x2, y2 = obj["box"]
+
+                # Draw Bounding Box
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-                # Draw label text
+                # Draw label and confidence
+                label_text = f"{label} ({confidence:.2f})"
                 cv2.putText(
                     image,
-                    label,
+                    label_text,
                     (x1, y1 - 10),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
                     (0, 255, 0),
                     2,
                 )
-
-        for obj in detected_objects:
-            label = obj["label"]
-            confidence = obj["confidence"]
-            x1, y1, x2, y2 = obj["box"]
-
-            # 繪製 Bounding Box
-            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-            # 繪製標籤與置信度
-            label_text = f"{label} ({confidence:.2f})"
-            cv2.putText(
-                image,
-                label_text,
-                (x1, y1 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (0, 255, 0),
-                2,
-            )
-            if screenshot:
-                cropped_image = image[y1:y2, x1:x2]
-                if cropped_image.size > 0:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    screenshot_path = os.path.join(
-                        save_folder, f"{label}_{timestamp}.png"
-                    )
-                    cv2.imwrite(screenshot_path, cropped_image)
+                if screenshot:
+                    cropped_image = image[y1:y2, x1:x2]
+                    if cropped_image.size > 0:
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        screenshot_path = os.path.join(
+                            save_folder, f"{label}_{timestamp}.png"
+                        )
+                        cv2.imwrite(screenshot_path, cropped_image)
 
         if draw_crosshair:
             self._draw_crosshair(image)
 
-        if not isinstance(image, (np.ndarray,)):
+        if not isinstance(image, np.ndarray):
             print("Processed image is not a valid numpy array.")
             return
 
         try:
-            # 將影像轉換為 ROS 訊息並發布
+            # Convert image to ROS message and publish
             ros_image = self.image_processor.get_rgb_ros_image(image)
             self.ros_communicator.publish_data("yolo_image", ros_image)
         except Exception as e:
