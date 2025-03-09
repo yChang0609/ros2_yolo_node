@@ -48,8 +48,11 @@ To use the YOLO model in this package, follow these steps:
     │   ├── yolo_example_pkg/
     │   │   ├── models/
     │   │   │   ├── yolov8n.pt
+                ├── yolov8n-seg.pt
     ```
-
+    You can update the model used in the following files inside `yolo_pkg`:
+    - `yolo_segmentation_model.py`
+    - `yolo_detect_model.py`
 
 2. Model Path Configuration
 

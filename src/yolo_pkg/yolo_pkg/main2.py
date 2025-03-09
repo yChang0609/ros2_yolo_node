@@ -79,7 +79,7 @@ def main():
                     draw_crosshair=True,
                     save_folder="screenshots",
                     segmentation_status="open",
-                    bounding_status="open",
+                    bounding_status="close",
                 )
             else:
                 print("Invalid input. Please enter 1 or 2.")
