@@ -24,7 +24,7 @@ The YOLO node can operate in different modes depending on your use case:
 - Mode 4: segmentation
     - Enables segmentation mode, displaying segmentation masks on the output topic `/yolo/detection/compressed`.
 ### class diagram
-![Logo](https://github.com/alianlbj23/ros2_yolo_integration/blob/dev/img/image_deal.jpeg?raw=true)
+![Logo](https://github.com/alianlbj23/ros2_yolo_integration/blob/main/img/image_deal.jpeg?raw=true)
 ## yolo_example_pkg
 This is a ROS 2 project for integrating YOLO with ROS 2, providing functionality for real-time object detection and bounding box visualization.
 ### Features
