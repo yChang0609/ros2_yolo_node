@@ -59,22 +59,22 @@ def main():
                 boundingbox_visualizer.draw_bounding_boxes(
                     draw_crosshair=True,
                     screenshot=False,
-                    segmentation_status="close",
-                    bounding_status="open",
+                    segmentation_status=False,
+                    bounding_status=True,
                 )
             elif user_input == "2":
                 boundingbox_visualizer.draw_bounding_boxes(
                     draw_crosshair=True,
                     screenshot=True,
-                    segmentation_status="close",
-                    bounding_status="open",
+                    segmentation_status=False,
+                    bounding_status=True,
                 )
             elif user_input == "3":
                 boundingbox_visualizer.draw_bounding_boxes(
                     draw_crosshair=True,
                     screenshot=False,
-                    segmentation_status="close",
-                    bounding_status="close",
+                    segmentation_status=False,
+                    bounding_status=True,
                 )
 
                 # store 5fps unity camera picture
@@ -84,8 +84,8 @@ def main():
                 boundingbox_visualizer.draw_bounding_boxes(
                     draw_crosshair=True,
                     screenshot=False,
-                    segmentation_status="open",
-                    bounding_status="close",
+                    segmentation_status=True,
+                    bounding_status=False,
                 )
             else:
                 print("Invalid input.")

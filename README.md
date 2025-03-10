@@ -23,6 +23,18 @@ The YOLO node can operate in different modes depending on your use case:
     - Takes a screenshot from the camera feed at a rate of 5 frames per second.
 - Mode 4: segmentation
     - Enables segmentation mode, displaying segmentation masks on the output topic `/yolo/detection/compressed`.
+### Function
+- draw_bounding_boxes
+    - `draw_crosshair`(bool) :
+        - If set to True, the function will draw a crosshair at the center of the image.
+    - `screenshot`(bool) :
+        - If True, the function will capture a screenshot of the image after drawing the bounding boxes.
+    - `segmentation_status`(bool) :
+        - Controls whether the segmentation overlay is displayed on the output image.
+    - `bounding_status`(bool) :
+        - Controls whether bounding boxes are displayed on the output image.
+- save_fps_screenshot
+    - Captures screenshots at a fixed rate of 5 frames per second (FPS).
 ### class diagram
 ![Logo](https://github.com/alianlbj23/ros2_yolo_integration/blob/main/img/image_deal.jpeg?raw=true)
 ## yolo_example_pkg

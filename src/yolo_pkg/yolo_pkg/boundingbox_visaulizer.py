@@ -68,8 +68,8 @@ class BoundingBoxVisualizer:
         draw_crosshair=False,
         screenshot=False,
         save_folder="screenshots",
-        segmentation_status="close",
-        bounding_status="close",  # Controls all bounding boxes
+        segmentation_status=False,
+        bounding_status=False,  # Controls all bounding boxes
     ):
         """
         Draws bounding boxes on the output image from the /yolo/detection/compressed topic.
@@ -78,10 +78,10 @@ class BoundingBoxVisualizer:
             draw_crosshair (bool): If True, draws a crosshair on the subscribed camera topic image.
             screenshot (bool): If True, captures a screenshot of the objects detected by YOLO.
             save_folder (str): Directory where the screenshots will be saved.
-            segmentation_status (str): Controls the display of segmentation on the output image.
-                                    Possible values: "open" (enable segmentation), "close" (disable segmentation).
-            bounding_status (str): Controls the display of bounding boxes on the output image.
-                                Possible values: "open" (enable bounding boxes), "close" (disable bounding boxes).
+            segmentation_status (bool): Controls whether the segmentation overlay is displayed on the output image.
+                             Set to True to enable segmentation; set to False to disable segmentation.
+            bounding_status (bool): Controls whether the bounding boxes are displayed on the output image.
+                                    Set to True to enable bounding boxes; set to False to disable bounding boxes.
 
         Returns:
             None
@@ -92,7 +92,7 @@ class BoundingBoxVisualizer:
             print("Error: No image received from image_processor")
             return
 
-        if segmentation_status == "open":
+        if segmentation_status:
             self.yolo_bounding_box.get_segmentation_data()
             segmentation_objects = self.yolo_bounding_box.get_segmentation_data()
 
@@ -120,7 +120,7 @@ class BoundingBoxVisualizer:
                     )
 
         # **Check if bounding_status is "open" before drawing YOLO bounding boxes**
-        if bounding_status == "open":
+        if bounding_status:
             detected_objects = self.yolo_bounding_box.get_tags_and_boxes()
             for obj in detected_objects:
                 label = obj["label"]
