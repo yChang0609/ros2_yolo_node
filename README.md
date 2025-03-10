@@ -13,6 +13,16 @@ r
 ```
 ros2 run yolo_pkg yolo_detection_node
 ```
+### Mode
+The YOLO node can operate in different modes depending on your use case:
+- Mode 1: Draw bounding boxes without screenshot
+    - Displays YOLO-detected bounding boxes on the output topic `/yolo/detection/compressed`.
+- Mode 2: Draw bounding boxes with screenshot
+    - Captures a screenshot of each detected object and saves it.
+- Mode 3: 5 fps screenshot.
+    - Takes a screenshot from the camera feed at a rate of 5 frames per second.
+- Mode 4: segmentation
+    - Enables segmentation mode, displaying segmentation masks on the output topic `/yolo/detection/compressed`.
 ### class diagram
 ![Logo](https://github.com/alianlbj23/ros2_yolo_integration/blob/dev/img/image_deal.jpeg?raw=true)
 ## yolo_example_pkg

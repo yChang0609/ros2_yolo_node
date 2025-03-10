@@ -57,15 +57,14 @@ class YoloBoundingBox:
 
         segmentation_results = self._yolo_segmentation_filter(self.image)
 
-        # 🔹 Check if results are valid
         if not segmentation_results or segmentation_results[0].masks is None:
-            print("Warning: No segmentation masks detected.")
+            # print("Warning: No segmentation masks detected.")
             return []  # Return empty list if no masks found
 
         segmentation_objects = []
         for result in segmentation_results:
             if result.masks is None or result.boxes is None:
-                continue  # Skip empty results
+                continue
 
             # Convert masks to usable format
             masks_np = result.masks.data.cpu().numpy()  # Convert to NumPy array
@@ -88,7 +87,7 @@ class YoloBoundingBox:
                         "label": class_name,
                         "confidence": float(conf),
                         "box": tuple(map(int, box)),
-                        "mask": masks_np[i],  # Assign the correct mask from the array
+                        "mask": masks_np[i],
                     }
                 )
 

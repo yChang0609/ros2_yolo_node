@@ -40,7 +40,7 @@ class BoundingBoxVisualizer:
             crosshair_thickness,
         )
 
-    # Use this function can 5fps
+    # Use this function can 5fps screenshot
     def save_fps_screenshot(self, save_folder="fps_screenshots"):
         """
         Saves full-frame images at 5 FPS without bounding boxes.
@@ -61,7 +61,7 @@ class BoundingBoxVisualizer:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         screenshot_path = os.path.join(save_folder, f"full_frame_{timestamp}.png")
         cv2.imwrite(screenshot_path, image)
-        print(f"Saved full-frame screenshot: {screenshot_path}")
+        # print(f"Saved full-frame screenshot: {screenshot_path}")
 
     def draw_bounding_boxes(
         self,
@@ -72,16 +72,28 @@ class BoundingBoxVisualizer:
         bounding_status="close",  # Controls all bounding boxes
     ):
         """
-        根據 YOLO 偵測結果在影像上繪製 Bounding Box。
+        Draws bounding boxes on the output image from the /yolo/detection/compressed topic.
+
+        Args:
+            draw_crosshair (bool): If True, draws a crosshair on the subscribed camera topic image.
+            screenshot (bool): If True, captures a screenshot of the objects detected by YOLO.
+            save_folder (str): Directory where the screenshots will be saved.
+            segmentation_status (str): Controls the display of segmentation on the output image.
+                                    Possible values: "open" (enable segmentation), "close" (disable segmentation).
+            bounding_status (str): Controls the display of bounding boxes on the output image.
+                                Possible values: "open" (enable bounding boxes), "close" (disable bounding boxes).
+
+        Returns:
+            None
         """
-        detected_objects = self.yolo_bounding_box.get_tags_and_boxes()
+
         image = self.image_processor.get_rgb_cv_image()
         if image is None:
             print("Error: No image received from image_processor")
             return
-        self.yolo_bounding_box.get_segmentation_data()
 
         if segmentation_status == "open":
+            self.yolo_bounding_box.get_segmentation_data()
             segmentation_objects = self.yolo_bounding_box.get_segmentation_data()
 
             for obj in segmentation_objects:
@@ -109,6 +121,7 @@ class BoundingBoxVisualizer:
 
         # **Check if bounding_status is "open" before drawing YOLO bounding boxes**
         if bounding_status == "open":
+            detected_objects = self.yolo_bounding_box.get_tags_and_boxes()
             for obj in detected_objects:
                 label = obj["label"]
                 confidence = obj["confidence"]

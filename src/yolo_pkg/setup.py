@@ -21,8 +21,7 @@ setup(
     license="TODO: License declaration",
     entry_points={
         "console_scripts": [
-            "yolo_detection_node = yolo_pkg.main2:main",
-            "yolo_detection_node_old = yolo_pkg.main:main",
+            "yolo_detection_node = yolo_pkg.main:main",
         ],
     },
 )
