@@ -39,3 +39,47 @@ class YoloDepthExtractor:
             )
 
         return objects_with_depth
+
+    def get_depth_camera_center_value(self):
+        """
+        Returns the depth value at the center point of the depth camera,
+        along with the center coordinates.
+
+        Returns:
+            dict: Contains 'center' (x,y) coordinates and 'depth' value.
+                  Returns None if depth image is invalid.
+        """
+        depth_cv_image = self.image_processor.get_depth_cv_image()
+        is_invalid_depth_image = depth_cv_image is None or not isinstance(
+            depth_cv_image, np.ndarray
+        )
+        if is_invalid_depth_image:
+            print("Depth image is invalid.")
+            return None
+
+        # Calculate center coordinates
+        height, width = depth_cv_image.shape[:2]
+        center_x = width // 2
+        center_y = height // 2
+
+        # Get depth value at center point
+        center_depth = depth_cv_image[center_y, center_x]
+
+        # Handle case where center point might have invalid/zero depth
+        if center_depth == 0:
+            # Try to find nearest non-zero depth value
+            window_size = 5
+            window = depth_cv_image[
+                max(0, center_y - window_size) : min(
+                    height, center_y + window_size + 1
+                ),
+                max(0, center_x - window_size) : min(width, center_x + window_size + 1),
+            ]
+            non_zero_values = window[window > 0]
+            if len(non_zero_values) > 0:
+                center_depth = np.mean(non_zero_values)
+            else:
+                print("No valid depth value found at center point.")
+                return None
+
+        return {"center": (center_x, center_y), "depth": float(center_depth)}
