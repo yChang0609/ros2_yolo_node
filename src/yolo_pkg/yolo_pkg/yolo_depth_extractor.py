@@ -9,14 +9,11 @@ class YoloDepthExtractor:
 
     def get_yolo_object_depth(self):
         depth_cv_image = self.image_processor.get_depth_cv_image()
-        is_invalid_depth_image = depth_cv_image is None or not isinstance(
-            depth_cv_image, np.ndarray
-        )
-        if is_invalid_depth_image:
+        if depth_cv_image is None or not isinstance(depth_cv_image, np.ndarray):
             print("Depth image is invalid.")
             return []
-        detected_objects = self.yolo_boundingbox.get_tags_and_boxes()
 
+        detected_objects = self.yolo_boundingbox.get_tags_and_boxes()
         if not detected_objects:
             print("No detected objects to calculate depth.")
             return []
@@ -26,16 +23,23 @@ class YoloDepthExtractor:
             label = obj["label"]
             x1, y1, x2, y2 = obj["box"]
 
-            depth_region = depth_cv_image[y1:y2, x1:x2]
+            # 取得 bounding box 的中心點
+            center_x = int((x1 + x2) / 2)
+            center_y = int((y1 + y2) / 2)
 
-            if depth_region.size == 0:
-                print(f"No depth data available for {label}.")
+            # 確認中心點在圖像範圍內
+            if (
+                center_x < 0
+                or center_x >= depth_cv_image.shape[1]
+                or center_y < 0
+                or center_y >= depth_cv_image.shape[0]
+            ):
+                print(f"Center point out of bounds for {label}.")
                 continue
 
-            mean_depth = np.mean(depth_region[depth_region > 0])
-
+            depth_value = depth_cv_image[center_y, center_x]
             objects_with_depth.append(
-                {"label": label, "box": (x1, y1, x2, y2), "depth": mean_depth}
+                {"label": label, "box": (x1, y1, x2, y2), "depth": depth_value}
             )
 
         return objects_with_depth
