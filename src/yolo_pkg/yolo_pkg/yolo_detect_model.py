@@ -7,7 +7,9 @@ from ultralytics import YOLO
 class YoloDetectionModel:
     def __init__(self):
         model_path = os.path.join(
-            get_package_share_directory("yolo_pkg"), "models", "yolov8n.pt"
+            get_package_share_directory("yolo_pkg"),
+            "models",
+            "best_nano_auto_augu_super_close_fire.pt",
         )
         self.model = YOLO(model_path)
         print()
