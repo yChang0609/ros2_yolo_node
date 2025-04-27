@@ -7,6 +7,7 @@ from yolo_pkg.yolo_bounding_box import YoloBoundingBox
 from yolo_pkg.boundingbox_visaulizer import BoundingBoxVisualizer
 from yolo_pkg.camera_geometry import CameraGeometry
 import threading
+from std_msgs.msg import String  # Import String message type
 
 
 def _init_ros_node():
@@ -62,6 +63,11 @@ def main():
                     segmentation_status=False,
                     bounding_status=True,
                 )
+                offsets_3d = camera_geometry.calculate_offset_from_crosshair_2d()
+                offset_msg = String()
+                offset_msg.data = offsets_3d
+                ros_communicator.publish_data("object_offset", offset_msg)
+
             elif user_input == "2":
                 boundingbox_visualizer.draw_bounding_boxes(
                     draw_crosshair=True,

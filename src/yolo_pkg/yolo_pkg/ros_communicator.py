@@ -26,7 +26,7 @@ class RosCommunicator(Node):
                 "callback": self._depth_image_compress_sub_callback,
             },
             "depth_image": {
-                "topic": "/camera/depth",
+                "topic": "/camera/depth/image_raw",
                 "msg_type": Image,
                 "callback": self._depth_image_sub_callback,
             },
@@ -46,9 +46,9 @@ class RosCommunicator(Node):
                 "topic": "/yolo/detection/position",
                 "msg_type": PointStamped,
             },
-            "point_offset": {
-                "topic": "/yolo/detection/offset",
-                "msg_type": PointStamped,
+            "object_offset": {
+                "topic": "/yolo/object/offset",
+                "msg_type": String,
             },
             "detection_status": {
                 "topic": "/yolo/detection/status",
