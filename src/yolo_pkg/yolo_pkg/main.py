@@ -64,6 +64,7 @@ def main():
                     bounding_status=True,
                 )
                 offsets_3d = camera_geometry.calculate_offset_from_crosshair_2d()
+                boundingbox_visualizer.draw_offset_info(offsets_3d)
                 offset_msg = String()
                 offset_msg.data = offsets_3d
                 ros_communicator.publish_data("object_offset", offset_msg)

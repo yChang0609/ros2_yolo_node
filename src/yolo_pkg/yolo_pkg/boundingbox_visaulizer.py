@@ -3,6 +3,7 @@ import numpy as np
 import os
 from datetime import datetime
 import time
+import json
 
 
 class BoundingBoxVisualizer:
@@ -40,7 +41,114 @@ class BoundingBoxVisualizer:
             crosshair_thickness,
         )
 
-    # Use this function can 5fps screenshot
+    def draw_offset_info(self, offsets_3d_json):
+        """
+        Draws 3D offset information on the image along with a point at each object's center.
+        Each object gets a unique color for both its point and text.
+
+        Args:
+            offsets_3d_json (str): JSON string containing object offsets in FLU format
+                                  (Forward/depth, Left, Up)
+
+        Returns:
+            None
+        """
+        if not offsets_3d_json:
+            return
+
+        # Get the current image
+        image = self.image_processor.get_rgb_cv_image()
+        if image is None:
+            print("Error: No image received from image_processor")
+            return
+
+        try:
+            # Parse the JSON string
+            offsets_data = json.loads(offsets_3d_json)
+
+            if not offsets_data:
+                return
+
+            # Find detected objects to match with offsets
+            detected_objects = self.yolo_bounding_box.get_tags_and_boxes()
+            if not detected_objects:
+                return
+
+            # Create a mapping from label to box
+            label_to_box = {obj["label"]: obj["box"] for obj in detected_objects}
+
+            # Predefined colors for objects (BGR format)
+            colors = [
+                (0, 0, 255),  # Red
+                (0, 255, 0),  # Green
+                (255, 0, 0),  # Blue
+                (255, 0, 255),  # Magenta
+                (0, 255, 255),  # Yellow
+                (255, 165, 0),  # Orange
+                (128, 0, 128),  # Purple
+                (0, 128, 128),  # Teal
+                (128, 128, 0),  # Olive
+                (75, 0, 130),  # Indigo
+            ]
+
+            # Draw offset information for each object
+            for i, offset_obj in enumerate(offsets_data):
+                label = offset_obj["label"]
+                offset = offset_obj.get("offset_flu")
+
+                if not offset or label not in label_to_box:
+                    continue
+
+                x1, y1, x2, y2 = label_to_box[label]
+
+                # Select color based on object index (cycle through colors if more objects than colors)
+                color = colors[i % len(colors)]
+
+                # Calculate center point of bounding box
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
+
+                # Draw a circle at the center point using the object's color
+                cv2.circle(
+                    image,
+                    (center_x, center_y),
+                    5,  # Radius
+                    color,  # Object-specific color
+                    -1,  # Filled circle
+                )
+
+                # Format the offset text: Forward (F), Left (L), Up (U)
+                offset_text = f"F:{offset[0]}m L:{offset[1]}m U:{offset[2]}m"
+
+                # Draw the offset below the bounding box using the same color
+                text_y = y2 + 20  # Position text below the bounding box
+                cv2.putText(
+                    image,
+                    offset_text,
+                    (x1, text_y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    color,  # Same color as the center point
+                    2,
+                )
+
+            # Convert to ROS message and publish
+            ros_image = self.image_processor.get_rgb_ros_image(image)
+            self.ros_communicator.publish_data("yolo_image", ros_image)
+
+        except json.JSONDecodeError:
+            print("Error decoding JSON from offsets_3d")
+        except Exception as e:
+            print(f"Error drawing offset info: {e}")
+
+        # Convert to ROS message and publish
+        try:
+            ros_image = self.image_processor.get_rgb_ros_image(image)
+            self.ros_communicator.publish_data("yolo_image", ros_image)
+        except Exception as e:
+            print(f"Failed to convert or publish image with offsets: {e}")
+        # Use this function can 5fps screenshot
+
     def save_fps_screenshot(self, save_folder="fps_screenshots"):
         """
         Saves full-frame images at 5 FPS without bounding boxes.
