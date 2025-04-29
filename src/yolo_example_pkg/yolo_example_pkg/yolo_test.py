@@ -28,7 +28,7 @@ class YoloDetectionNode(Node):
 
         # 訂閱影像 Topic
         self.image_sub = self.create_subscription(
-            CompressedImage, "/camera/image/compressed", self.image_callback, 10
+            CompressedImage, "/camera/color/image_raw/compressed", self.image_callback, 10
         )
 
         # 發佈處理後的影像 Topic
@@ -43,6 +43,7 @@ class YoloDetectionNode(Node):
             cv_image = self.bridge.compressed_imgmsg_to_cv2(
                 msg, desired_encoding="bgr8"
             )
+            print("hello")
         except Exception as e:
             self.get_logger().error(f"Could not convert image: {e}")
             return
