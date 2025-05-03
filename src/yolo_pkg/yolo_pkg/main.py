@@ -7,6 +7,8 @@ from yolo_pkg.yolo_bounding_box import YoloBoundingBox
 from yolo_pkg.boundingbox_visaulizer import BoundingBoxVisualizer
 from yolo_pkg.camera_geometry import CameraGeometry
 import threading
+from std_msgs.msg import String  # Import String message type
+from yolo_pkg.load_params import LoadParams
 
 
 def _init_ros_node():
@@ -40,9 +42,10 @@ def main():
     """
     Main function to initialize the node and run the bounding box visualizer.
     """
+    load_params = LoadParams("yolo_pkg")
     ros_communicator, executor, ros_thread = _init_ros_node()
-    image_processor = ImageProcessor(ros_communicator)
-    yolo_boundingbox = YoloBoundingBox(image_processor)
+    image_processor = ImageProcessor(ros_communicator, load_params)
+    yolo_boundingbox = YoloBoundingBox(image_processor, load_params)
     yolo_depth_extractor = YoloDepthExtractor(
         yolo_boundingbox, image_processor, ros_communicator
     )
@@ -56,12 +59,19 @@ def main():
     try:
         while True:
             if user_input == "1":
+                offsets_3d = camera_geometry.calculate_offset_from_crosshair_2d()
                 boundingbox_visualizer.draw_bounding_boxes(
                     draw_crosshair=True,
                     screenshot=False,
-                    segmentation_status=False,
+                    segmentation_status=True,
                     bounding_status=True,
+                    offsets_3d_json=offsets_3d,
                 )
+
+                offset_msg = String()
+                offset_msg.data = offsets_3d
+                ros_communicator.publish_data("object_offset", offset_msg)
+
             elif user_input == "2":
                 boundingbox_visualizer.draw_bounding_boxes(
                     draw_crosshair=True,
@@ -91,8 +101,8 @@ def main():
                 print("Invalid input.")
 
             # Example action for yolo_depth_extractor (can be removed if not needed)
-            # depth_data = yolo_depth_extractor.get_yolo_object_depth()
-            # print(f"Object Depth: {depth_data}")
+            depth_data = yolo_depth_extractor.get_yolo_object_depth()
+            print(f"Object Depth: {depth_data}")
 
     except KeyboardInterrupt:
         print("Shutting down gracefully...")

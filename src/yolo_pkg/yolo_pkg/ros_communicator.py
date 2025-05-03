@@ -1,5 +1,5 @@
 from rclpy.node import Node
-from sensor_msgs.msg import CompressedImage, Imu
+from sensor_msgs.msg import CompressedImage, Imu, Image
 from std_msgs.msg import String, Bool
 from geometry_msgs.msg import PointStamped
 
@@ -20,9 +20,14 @@ class RosCommunicator(Node):
                 "msg_type": Imu,
                 "callback": self._imu_sub_callback,
             },
-            "depth_image": {
+            "depth_image_compress": {
                 "topic": "/camera/depth/compressed",
                 "msg_type": CompressedImage,
+                "callback": self._depth_image_compress_sub_callback,
+            },
+            "depth_image": {
+                "topic": "/camera/depth/image_raw",
+                "msg_type": Image,
                 "callback": self._depth_image_sub_callback,
             },
             "target_label": {
@@ -41,9 +46,9 @@ class RosCommunicator(Node):
                 "topic": "/yolo/detection/position",
                 "msg_type": PointStamped,
             },
-            "point_offset": {
-                "topic": "/yolo/detection/offset",
-                "msg_type": PointStamped,
+            "object_offset": {
+                "topic": "/yolo/object/offset",
+                "msg_type": String,
             },
             "detection_status": {
                 "topic": "/yolo/detection/status",
@@ -76,6 +81,9 @@ class RosCommunicator(Node):
 
     def _depth_image_sub_callback(self, msg):
         self.latest_data["depth_image"] = msg
+
+    def _depth_image_compress_sub_callback(self, msg):
+        self.latest_data["depth_image_compress"] = msg
 
     def _target_label_sub_callback(self, msg):
         self.latest_data["target_label"] = msg
