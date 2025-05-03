@@ -1,0 +1,8 @@
+yolo:
+  conf: 0.6
+  obb_model: "yolov8n.pt"
+  seg_model: "yolo11n-seg.pt"
+
+image:
+  use_compressed: true
+  screenshot_fps: 5

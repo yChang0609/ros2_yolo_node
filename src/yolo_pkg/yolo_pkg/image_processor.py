@@ -6,10 +6,11 @@ from cv_bridge import CvBridge
 
 
 class ImageProcessor:
-    def __init__(self, ros_communicator):
+    def __init__(self, ros_communicator, load_params):
         self.bridge = CvBridge()
         self.ros_communicator = ros_communicator
         self.latest_valid_depth_image = None  # Cache the last valid image
+        self.load_params = load_params
 
     def _convert_imgmsg_to_cv2(self, img, encoding):
         return self.bridge.imgmsg_to_cv2(img, desired_encoding=encoding)
@@ -150,7 +151,7 @@ class ImageProcessor:
         ros_img = self._convert_image_from_cv_to_ros(img)
         return ros_img
 
-    def get_depth_cv_image(self, use_compressed=False):
+    def get_depth_cv_image(self, use_compressed=None):
         """
         Fetch and convert the depth image from ROS to OpenCV format (float32 meters).
 
@@ -161,6 +162,9 @@ class ImageProcessor:
         Returns:
             np.ndarray or None: The depth image in OpenCV format (meters) or None on failure.
         """
+        if use_compressed is None:
+            use_compressed = self.load_params.get_use_compressed()
+
         if use_compressed:
             ros_key = "depth_image_compress"
         else:

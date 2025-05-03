@@ -1,20 +1,33 @@
-from yolo_pkg.yolo_detect_model import YoloDetectionModel
-from yolo_pkg.yolo_segmentation_model import YoloSegmentationModel
 import contextlib
 import io
 
-CONFIDENCE = 0.6
-
 
 class YoloBoundingBox:
-    def __init__(self, image_processor):
+    def __init__(self, image_processor, load_params):
         self.image_processor = image_processor
-        self.yolo_model = YoloDetectionModel().get_yolo_model()
-        self.yolo_segmentation_model = (
-            YoloSegmentationModel().get_yolo_segmentation_model()
-        )
+        self.load_params = load_params
+        self._yolo_model = None
+        self._yolo_segmentation_model = None
 
-    def get_tags_and_boxes(self, confidence_threshold=CONFIDENCE):
+    @property
+    def yolo_model(self):
+        if self._yolo_model is None:
+            self._yolo_model = self.load_params.get_detection_model()
+        return self._yolo_model
+
+    @property
+    def yolo_segmentation_model(self):
+        if self._yolo_segmentation_model is None:
+            self._yolo_segmentation_model = self.load_params.get_segmentation_model()
+        return self._yolo_segmentation_model
+
+    def get_confidence_threshold(self):
+        return self.load_params.get_confidence_threshold()
+
+    def get_tags_and_boxes(self, confidence_threshold=None):
+        if confidence_threshold is None:
+            confidence_threshold = self.get_confidence_threshold()
+
         self.target_label = self.get_target_label()
         self.image = self.image_processor.get_rgb_cv_image()
         if self.image is None:
@@ -46,10 +59,13 @@ class YoloBoundingBox:
 
         return detected_objects
 
-    def get_segmentation_data(self, confidence_threshold=CONFIDENCE):
+    def get_segmentation_data(self, confidence_threshold=None):
         """
         Returns segmentation masks for detected objects.
         """
+        if confidence_threshold is None:
+            confidence_threshold = self.get_confidence_threshold()
+
         self.image = self.image_processor.get_rgb_cv_image()
         if self.image is None:
             print("Error: No image received from image_processor")
