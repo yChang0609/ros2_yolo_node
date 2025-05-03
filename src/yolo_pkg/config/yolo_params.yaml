@@ -5,4 +5,3 @@ yolo:
 
 image:
   use_compressed: true
-  screenshot_fps: 5
