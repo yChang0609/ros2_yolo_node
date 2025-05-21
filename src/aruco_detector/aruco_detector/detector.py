@@ -15,34 +15,15 @@ import numpy as np
 import yaml
 import os
 
-marker_length = 0.36  # meter
-half_size = marker_length / 2
-objp = np.array([
-    [-half_size,  half_size, 0],  # top-left
-    [ half_size,  half_size, 0],  # top-right
-    [ half_size, -half_size, 0],  # bottom-right
-    [-half_size, -half_size, 0]   # bottom-left
-], dtype=np.float32)
+from .aruco_config import ArucoConfig
 
-## DEBUG
-def print_transform(label, mat):
-    print(f"\n------ {label} ------")
-    np.set_printoptions(precision=3, suppress=True)
-    print(mat)
 
 class ArucoDetectorNode(Node):
     def __init__(self):
         super().__init__('aruco_detector')
 
         self.bridge = CvBridge()
-        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_ARUCO_ORIGINAL)
-        self.aruco_params = cv2.aruco.DetectorParameters_create()
-        self.aruco_params.adaptiveThreshWinSizeMin = 5
-        self.aruco_params.adaptiveThreshWinSizeMax = 15
-        self.aruco_params.adaptiveThreshWinSizeStep = 5
-        self.aruco_params.cornerRefinementWinSize = 5  
-        # self.aruco_params.minMarkerPerimeterRate = 0.05  
-        self.aruco_params.perspectiveRemoveIgnoredMarginPerCell = 0.15  
+        self.config = ArucoConfig()
 
         self.tf_broadcaster = TransformBroadcaster(self)
         self.image_pub = self.create_publisher(Image, '/aruco_detector/detected_image', 10)
@@ -55,15 +36,7 @@ class ArucoDetectorNode(Node):
             self.image_callback,
             10)
         
-        self.camera_matrix = np.array([
-            [576.83946  , 0.0       , 319.59192 ],
-            [0.         , 577.82786 , 238.89255 ],
-            [0.         , 0.        , 1.        ]
-        ])
-        self.dist_coeffs = np.array([0.001750, -0.003776, -0.000528, -0.000228, 0.000000])
-    
 
-        # 載入 ArUco map yaml (format: {id: {x, y, theta}})
         # map_path = os.path.join(os.path.dirname(__file__), 'aruco_map.yaml')
         aruco_path = '/workspaces/src/aruco_detector/config/aruco_location.yaml'
         with open(aruco_path, 'r') as f:
@@ -108,23 +81,6 @@ class ArucoDetectorNode(Node):
 
         self.timer = self.create_timer(1.0, self.publish_map)
 
-        self.T_camera_laser = np.eye(4)
-        self.T_camera_laser[0:3, 0:3] = np.array([
-            [  0,  0,  1],
-            [ -1,  0,  0],
-            [  0, -1,  0]
-        ])
-        self.T_camera_laser[0:3, 3] = [-0.2, 0.0, 0.0] 
-
-        # Get marker pose in map frame
-        R_align = np.array([
-            [1,  0,  0],   # x_map → x_cam
-            [0,  0, -1],   # y_map → z_cam
-            [0,  1,  0]    # z_map → -y_cam
-        ])
-        self.T_align = np.eye(4)
-        self.T_align[0:3, 0:3] = np.linalg.inv(R_align)
-
     def publish_map(self):
         self.map_msg.header.stamp = self.get_clock().now().to_msg()
         self.map_msg.header.frame_id = "map"  
@@ -141,7 +97,7 @@ class ArucoDetectorNode(Node):
 
         gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (3, 3), 0)
-        corners, ids, _ = cv2.aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
+        corners, ids, _ = cv2.aruco.detectMarkers(gray, self.config.aruco_dict, parameters=self.config.aruco_params)
         if ids is None:
             return
 
@@ -172,11 +128,6 @@ class ArucoDetectorNode(Node):
                 reorder = [2, 3, 0, 1]
                 image_points = image_points[:, reorder, :]
 
-            # for j, point in enumerate(image_points[0]):
-            #     u, v = int(point[0]), int(point[1])
-            #     cv2.circle(cv_image, (u, v), 3, (0, 255, 255), -1)
-            #     cv2.putText(cv_image, str(j), (u+5, v-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-
             # success, rvec, tvec, inliers = cv2.solvePnPRansac(
             #     objp, image_points,
             #     self.camera_matrix,
@@ -187,15 +138,15 @@ class ArucoDetectorNode(Node):
             #     iterationsCount=100
             # )
             success, rvec, tvec, inliersinliers = cv2.solvePnPRansac(
-                objp,
+                self.config.objp,
                 image_points,
-                self.camera_matrix,
-                self.dist_coeffs,
+                self.config.camera_matrix,
+                self.config.dist_coeffs,
                 # flags=cv2.SOLVEPNP_ITERATIVE
             )
             if not success:
                 continue
-            cv2.drawFrameAxes(cv_image, self.camera_matrix, self.dist_coeffs, rvec, tvec, marker_length * 0.5)
+            cv2.drawFrameAxes(cv_image, self.config.camera_matrix, self.config.dist_coeffs, rvec, tvec, self.config.marker_length * 0.5)
 
             # Get transform from camera to marker
             R, _ = cv2.Rodrigues(rvec)
@@ -226,8 +177,8 @@ class ArucoDetectorNode(Node):
             T_camer_laser[0:3, 0:3] = temp
 
             T_marker_camera = np.linalg.inv(T_camera_marker)
-            T_map_camera = T_map_marker @ self.T_align @ T_marker_camera
-            T_map_base = T_map_camera  @ np.linalg.inv(self.T_camera_laser)
+            T_map_camera = T_map_marker @ self.config.T_align @ T_marker_camera
+            T_map_base = T_map_camera  @ np.linalg.inv(self.config.T_camera_base)
 
             pos = T_map_base[0:3, 3]
 

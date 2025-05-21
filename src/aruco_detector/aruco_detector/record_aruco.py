@@ -16,21 +16,15 @@ import tf2_ros
 import tf2_geometry_msgs
 from geometry_msgs.msg import TransformStamped
 import threading
+from .aruco_config import ArucoConfig
 
 class ArucoDetectorNode(Node):
     def __init__(self):
         super().__init__('aruco_detector')
 
         self.bridge = CvBridge()
-        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_ARUCO_ORIGINAL)
-        self.aruco_params = cv2.aruco.DetectorParameters_create()
-        self.aruco_params.adaptiveThreshWinSizeMin = 5
-        self.aruco_params.adaptiveThreshWinSizeMax = 15
-        self.aruco_params.adaptiveThreshWinSizeStep = 5
+        self.config = ArucoConfig()
         
-        self.image_pub = self.create_publisher(Image, '/aruco_detector/detected_image', 10)
-        self.marker_pose_pub = self.create_publisher(PoseStamped, '/aruco_detector/marker_pose', 10)
-
         self.subscription = self.create_subscription(
             CompressedImage,
             '/camera/image/compressed',
@@ -40,27 +34,13 @@ class ArucoDetectorNode(Node):
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
-        self.camera_matrix = np.array([
-            [576.83946  , 0.0       , 319.59192 ],
-            [0.         , 577.82786 , 238.89255 ],
-            [0.         , 0.        , 1.        ]
-        ])
-        self.dist_coeffs = np.array([0.001750, -0.003776, -0.000528, -0.000228, 0.000000])
 
-        self.marker_length = 0.36
-
-        self.T_camera_base = np.eye(4)
-        self.T_camera_base[0:3, 0:3] = np.array([
-            [0, 0, 1],
-            [-1, 0, 0],
-            [0, -1, 0]
-        ])
-        self.T_camera_base[0:3, 3] = [-0.20, 0.0, 0.0]
-        
         self.detected_marker_map = {}  
-
         threading.Thread(target=self.key_listener, daemon=True).start()
         self.save = False
+
+        self.image_pub = self.create_publisher(Image, '/aruco_detector/detected_image', 10)
+        self.marker_pose_pub = self.create_publisher(PoseStamped, '/aruco_detector/marker_pose', 10)
         
     def key_listener(self):
         import sys, termios, tty
@@ -109,7 +89,7 @@ class ArucoDetectorNode(Node):
 
         gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (3, 3), 0)
-        corners, ids, _ = cv2.aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
+        corners, ids, _ = cv2.aruco.detectMarkers(gray, self.config.aruco_dict, parameters=self.config.aruco_params)
         if ids is None:
             return
 
@@ -135,32 +115,24 @@ class ArucoDetectorNode(Node):
                 reorder = [2, 3, 0, 1]
                 image_points = image_points[:, reorder, :]
             
-            half = self.marker_length / 2
-            objp = np.array([
-                [-half,  half, 0],
-                [ half,  half, 0],
-                [ half, -half, 0],
-                [-half, -half, 0]
-            ], dtype=np.float32)
-
             success, rvec, tvec, inliersinliers = cv2.solvePnPRansac(
-                objp,
+                self.config.objp,
                 image_points,
-                self.camera_matrix,
-                self.dist_coeffs,
+                self.config.camera_matrix,
+                self.config.dist_coeffs,
                 # flags=cv2.SOLVEPNP_ITERATIVE
             )
 
             if not success:
                 continue
-            cv2.drawFrameAxes(cv_image, self.camera_matrix, self.dist_coeffs, rvec, tvec, self.marker_length * 0.5)
+            cv2.drawFrameAxes(cv_image, self.config.camera_matrix, self.config.dist_coeffs, rvec, tvec, self.config.marker_length * 0.5)
            
             R, _ = cv2.Rodrigues(rvec)
             T_camera_marker = np.eye(4)
             T_camera_marker[0:3, 0:3] = R
             T_camera_marker[0:3, 3] = tvec.flatten()
 
-            T_map_marker = T_map_base @ self.T_camera_base @ T_camera_marker
+            T_map_marker = T_map_base @ self.config.T_camera_base @ T_camera_marker
 
             pos = T_map_marker[0:3, 3]
             yaw = np.arctan2(T_map_marker[1, 0], T_map_marker[0, 0])
@@ -188,7 +160,6 @@ class ArucoDetectorNode(Node):
             pose_msg.pose.orientation.w = qw
 
             self.marker_pose_pub.publish(pose_msg)
-            cv2.drawFrameAxes(cv_image, self.camera_matrix, self.dist_coeffs, rvec, tvec, self.marker_length * 0.5)
 
         img_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
         self.image_pub.publish(img_msg)
