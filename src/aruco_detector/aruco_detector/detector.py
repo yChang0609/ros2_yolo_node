@@ -9,11 +9,26 @@ from std_msgs.msg import Header
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 
+from scipy.spatial.transform import Rotation as scipy_R
 import cv2
 import numpy as np
 import yaml
 import os
 
+marker_length = 0.36  # meter
+half_size = marker_length / 2
+objp = np.array([
+    [-half_size,  half_size, 0],  # top-left
+    [ half_size,  half_size, 0],  # top-right
+    [ half_size, -half_size, 0],  # bottom-right
+    [-half_size, -half_size, 0]   # bottom-left
+], dtype=np.float32)
+
+## DEBUG
+def print_transform(label, mat):
+    print(f"\n------ {label} ------")
+    np.set_printoptions(precision=3, suppress=True)
+    print(mat)
 
 class ArucoDetectorNode(Node):
     def __init__(self):
@@ -25,8 +40,11 @@ class ArucoDetectorNode(Node):
         self.aruco_params.adaptiveThreshWinSizeMin = 5
         self.aruco_params.adaptiveThreshWinSizeMax = 15
         self.aruco_params.adaptiveThreshWinSizeStep = 5
+        self.aruco_params.cornerRefinementWinSize = 5  
+        # self.aruco_params.minMarkerPerimeterRate = 0.05  
+        self.aruco_params.perspectiveRemoveIgnoredMarginPerCell = 0.15  
 
-        # self.tf_broadcaster = TransformBroadcaster(self)
+        self.tf_broadcaster = TransformBroadcaster(self)
         self.image_pub = self.create_publisher(Image, '/aruco_detector/detected_image', 10)
         self.pose_pub = self.create_publisher(PoseWithCovarianceStamped, '/aruco_detector/pose', 10)
         self.map_pub = self.create_publisher(OccupancyGrid, '/map', 10)
@@ -38,12 +56,12 @@ class ArucoDetectorNode(Node):
             10)
         
         self.camera_matrix = np.array([
-                [387.96929, 0.0, 320.0],
-                [0.0, 390.85762, 240.0],
-                [0.0, 0.0, 1.0]
-            ])
-        self.dist_coeffs = np.zeros(5) #np.array([0.147622, -0.198939, -0.009281, 0.009981, 0.0])
-        self.camera_info_received = True
+            [576.83946  , 0.0       , 319.59192 ],
+            [0.         , 577.82786 , 238.89255 ],
+            [0.         , 0.        , 1.        ]
+        ])
+        self.dist_coeffs = np.array([0.001750, -0.003776, -0.000528, -0.000228, 0.000000])
+    
 
         # 載入 ArUco map yaml (format: {id: {x, y, theta}})
         # map_path = os.path.join(os.path.dirname(__file__), 'aruco_map.yaml')
@@ -90,81 +108,101 @@ class ArucoDetectorNode(Node):
 
         self.timer = self.create_timer(1.0, self.publish_map)
 
-        R = np.array([
-            [1,  0,  0],   # x unchanged
-            [0, -1,  0],   # y flipped
-            [0,  0, -1]    # z flipped
+        self.T_camera_laser = np.eye(4)
+        self.T_camera_laser[0:3, 0:3] = np.array([
+            [  0,  0,  1],
+            [ -1,  0,  0],
+            [  0, -1,  0]
         ])
+        self.T_camera_laser[0:3, 3] = [-0.2, 0.0, 0.0] 
 
-        self.T_camera_base = np.eye(4)
-        self.T_camera_base[0:3, 0:3] = R
-        self.T_camera_base[0:3, 3] = [0.05, 0.0, 0.20]  # 你量到的 camera 在 base_link 的位置
+        # Get marker pose in map frame
+        R_align = np.array([
+            [1,  0,  0],   # x_map → x_cam
+            [0,  0, -1],   # y_map → z_cam
+            [0,  1,  0]    # z_map → -y_cam
+        ])
+        self.T_align = np.eye(4)
+        self.T_align[0:3, 0:3] = np.linalg.inv(R_align)
 
     def publish_map(self):
         self.map_msg.header.stamp = self.get_clock().now().to_msg()
         self.map_msg.header.frame_id = "map"  
         self.map_pub.publish(self.map_msg)
 
+    def polygon_area(self, pts):
+        pts = np.array(pts[0])
+        return 0.5 * abs(np.dot(pts[:,0], np.roll(pts[:,1], 1)) - np.dot(pts[:,1], np.roll(pts[:,0], 1)))
+
     def image_callback(self, msg):
         cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
         if cv_image is None:
             return
 
-        corners, ids, _ = cv2.aruco.detectMarkers(cv_image, self.aruco_dict, parameters=self.aruco_params)
+        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+        corners, ids, _ = cv2.aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
         if ids is None:
             return
-        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-        gray = np.float32(gray)
+
+        gray_float = np.float32(gray) 
         criteria = (
             cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
             30,
             0.001
         )
-        for corner in corners:
+        for i in range(len(corners)):
             cv2.cornerSubPix(
-                gray,
-                corner,
+                gray_float,
+                corners[i], 
                 winSize=(5, 5),
                 zeroZone=(-1, -1),
                 criteria=criteria
             )
         cv2.aruco.drawDetectedMarkers(cv_image, corners, ids)
 
-        # estimate pose
-        marker_length = 0.36  # meter
-        rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(corners, marker_length, self.camera_matrix, self.dist_coeffs)
-
         for i, marker_id in enumerate(ids.flatten()):
         
-            if marker_id not in self.marker_map:
+            if marker_id not in self.marker_map or self.polygon_area(corners[i])<1500:
                 continue
-            cv2.drawFrameAxes(
-                cv_image,
+      
+            # print(self.polygon_area(corners[i]))
+            image_points = corners[i]  # shape: (4, 2)
+            if marker_id not in [3,4,5]:
+                reorder = [2, 3, 0, 1]
+                image_points = image_points[:, reorder, :]
+
+            # for j, point in enumerate(image_points[0]):
+            #     u, v = int(point[0]), int(point[1])
+            #     cv2.circle(cv_image, (u, v), 3, (0, 255, 255), -1)
+            #     cv2.putText(cv_image, str(j), (u+5, v-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+
+            # success, rvec, tvec, inliers = cv2.solvePnPRansac(
+            #     objp, image_points,
+            #     self.camera_matrix,
+            #     self.dist_coeffs,
+            #     flags=cv2.SOLVEPNP_ITERATIVE,  # 或 cv2.SOLVEPNP_ITERATIVE 更穩
+            #     reprojectionError=3.0,
+            #     confidence=0.99,
+            #     iterationsCount=100
+            # )
+            success, rvec, tvec, inliersinliers = cv2.solvePnPRansac(
+                objp,
+                image_points,
                 self.camera_matrix,
                 self.dist_coeffs,
-                rvecs[i],
-                tvecs[i],
-                marker_length * 0.5  # 軸長度（可調整）
+                # flags=cv2.SOLVEPNP_ITERATIVE
             )
-            origin_3d = np.array([[0, 0, 0]], dtype=np.float32)
-            imgpts, _ = cv2.projectPoints(origin_3d, rvecs[i], tvecs[i], self.camera_matrix, self.dist_coeffs)
-            u, v = imgpts[0][0]
-            cv2.circle(cv_image, (int(u), int(v)), 5, (255, 0, 255), -1)
+            if not success:
+                continue
+            cv2.drawFrameAxes(cv_image, self.camera_matrix, self.dist_coeffs, rvec, tvec, marker_length * 0.5)
 
-            
             # Get transform from camera to marker
-            t = tvecs[i].flatten()
-            R, _ = cv2.Rodrigues(rvecs[i])
+            R, _ = cv2.Rodrigues(rvec)
             T_camera_marker = np.eye(4)
             T_camera_marker[0:3, 0:3] = R
-            T_camera_marker[0:3, 3] = t
+            T_camera_marker[0:3, 3] = tvec.flatten()
 
-            # Get marker pose in map frame
-            R_align = np.array([
-                [ 0,  0,  1],   # map x → camera -z
-                [ 1,  0,  0],   # map y → camera x
-                [ 0, -1,  0]    # map z → camera -y
-            ])
 
             m = self.marker_map[marker_id]
             theta = m['theta']
@@ -174,57 +212,62 @@ class ArucoDetectorNode(Node):
                 [sin_t,  cos_t, 0],
                 [0,      0,     1]
             ])
-            t_map_marker = np.array([m['x'], m['y'], 0])
+            location_map_marker = np.array([m['x'], m['y'], 0.0], dtype=np.float32)
             T_map_marker = np.eye(4)
-            T_map_marker[0:3, 0:3] = R_map_marker @ R_align
-            T_map_marker[0:3, 3] = t_map_marker
+            T_map_marker[0:3, 0:3] = R_map_marker
+            T_map_marker[0:3, 3] = location_map_marker
 
-            # 推算相機（在 map）的位置：T_map_camera = T_map_marker * T_marker_camera
-       
+            T_camer_laser = np.eye(4)
+            temp = np.array([
+                [-1, 0, 0],
+                [0, -1, 0],
+                [0, 0, 1]
+            ])
+            T_camer_laser[0:3, 0:3] = temp
+
             T_marker_camera = np.linalg.inv(T_camera_marker)
-            T_map_camera = T_map_marker @ T_marker_camera
-            T_map_base     = T_map_camera @ self.T_camera_base
+            T_map_camera = T_map_marker @ self.T_align @ T_marker_camera
+            T_map_base = T_map_camera  @ np.linalg.inv(self.T_camera_laser)
 
-            # 如果 camera 和 base_link 有相對偏移，進一步算 base_link
-            # T_map_base = T_map_camera @ self.T_camera_base
-            # print(T_map_base)
             pos = T_map_base[0:3, 3]
-            yaw = np.arctan2(T_map_base[1, 0], T_map_base[0, 0])
-            
-            # print(f"[DEBUG] Robot 推測位置： x={pos[0]:.3f}, y={pos[1]:.3f}")
 
-            # 發布 PoseWithCovarianceStamped
-            print(f"{pos},{yaw}")
+            R_matrix = T_map_base[0:3, 0:3]
+            q = scipy_R.from_matrix(R_matrix).as_quat()
+   
+            # PoseWithCovarianceStamped
+            print(f"{pos}")
             pose_msg = PoseWithCovarianceStamped()
             pose_msg.header.frame_id = "map"
             pose_msg.pose.pose.position.x = pos[0]
             pose_msg.pose.pose.position.y = pos[1]
             pose_msg.pose.pose.position.z = 0.0
 
-            q = self.yaw_to_quaternion(yaw)
+            # q = self.yaw_to_quaternion(yaw)
             pose_msg.pose.pose.orientation.x = q[0]
             pose_msg.pose.pose.orientation.y = q[1]
             pose_msg.pose.pose.orientation.z = q[2]
             pose_msg.pose.pose.orientation.w = q[3]
             print("pose estimatation!!")
             self.pose_pub.publish(pose_msg)
-            break  # 只用第一個已知的 marker
+           
+            t = TransformStamped()
+            t.header.stamp = self.get_clock().now().to_msg()
+            t.header.frame_id = "map"
+            t.child_frame_id = "base_link"
+            t.transform.translation.x = pos[0]
+            t.transform.translation.y = pos[1]
+            t.transform.translation.z = 0.0
+            t.transform.rotation.x = q[0]
+            t.transform.rotation.y = q[1]
+            t.transform.rotation.z = q[2]
+            t.transform.rotation.w = q[3]
+            self.tf_broadcaster.sendTransform(t)
+            break  
 
         img_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
         self.image_pub.publish(img_msg)
 
-        # t = TransformStamped()
-        # t.header.stamp = self.get_clock().now().to_msg()
-        # t.header.frame_id = "map"
-        # t.child_frame_id = "base_link"
-        # t.transform.translation.x = pos[0]
-        # t.transform.translation.y = pos[1]
-        # t.transform.translation.z = 0.0
-        # t.transform.rotation.x = q[0]
-        # t.transform.rotation.y = q[1]
-        # t.transform.rotation.z = q[2]
-        # t.transform.rotation.w = q[3]
-        # self.tf_broadcaster.sendTransform(t)
+
 
     def yaw_to_quaternion(self, yaw):
         qx = 0.0

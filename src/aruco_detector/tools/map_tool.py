@@ -5,7 +5,7 @@ import math
 import os
 
 # === 修改這裡 ===
-map_path = '/Users/chen/Documents/文件-MacBook/RNE/FunAI/workspace/ros2_yolo_node/src/aruco_detector/map'
+map_path = '/home/test/workspace/ros2_yolo_node/src/aruco_detector/map'
 yaml_path = yaml_path = os.path.join(map_path, 'map01.yaml')
 with open(yaml_path, 'r') as f:
     map_data = yaml.safe_load(f)
@@ -15,13 +15,13 @@ resolution = map_data['resolution']
 origin = map_data['origin']  # [origin_x, origin_y, yaw]
 img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
-img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
 if img is None:
     raise RuntimeError(f"無法載入地圖圖像: {image_path}")
 if len(img.shape) == 3:
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 img = cv2.flip(img, 0)
+# img = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
 img_h, img_w  = img.shape
 clicked = False
 p1 = None
