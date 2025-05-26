@@ -5,7 +5,7 @@ import yaml
 import os
 
 class ArucoConfig:
-    def __init__(self, marker_length=0.36):
+    def __init__(self, marker_length=0.34):
         self.marker_length = marker_length
         self.half_size = marker_length / 2
 
@@ -32,7 +32,7 @@ class ArucoConfig:
             [-1, 0, 0],
             [0, -1, 0]
         ])
-        self.T_camera_base[0:3, 3] = [-0.20, 0.0, 0.0]
+        self.T_camera_base[0:3, 3] = [-0.40, 0.0, 0.0]
 
         R_align = np.array([
             [1, 0,  0],
