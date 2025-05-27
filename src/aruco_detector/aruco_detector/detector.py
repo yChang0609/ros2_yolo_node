@@ -17,6 +17,7 @@ import os
 
 from .aruco_config import ArucoConfig
 
+from interfaces_pkg.msg import ArucoMarker, ArucoMarkerConfig
 
 class ArucoDetectorNode(Node):
     def __init__(self):
@@ -36,61 +37,75 @@ class ArucoDetectorNode(Node):
             self.image_callback,
             10)
         
-
-        # map_path = os.path.join(os.path.dirname(__file__), 'aruco_map.yaml')
-        aruco_path = '/workspaces/src/aruco_detector/config/aruco_location.yaml'
-        with open(aruco_path, 'r') as f:
-            self.marker_map = yaml.safe_load(f)
-        print(self.marker_map)
+        self.config_sub = self.create_subscription(
+            ArucoMarkerConfig,
+            '/aruco_marker/config',
+            self.config_callback,
+            10
+        )
+        self.marker_config = None
+        self.unflipped_ids = None
 
         # yaml_path = os.path.join(os.path.dirname(__file__), 'map.yaml')
-        map_path = '/workspaces/src/aruco_detector/map'
-        yaml_path = yaml_path = os.path.join(map_path, 'map01.yaml')
-        with open(yaml_path, 'r') as f:
-            map_metadata = yaml.safe_load(f)
-        image_path = yaml_path = os.path.join(map_path, map_metadata['image'])
-        resolution = map_metadata['resolution']
-        origin = map_metadata['origin']
-        occupied_thresh = map_metadata.get('occupied_thresh', 0.65)
+        # map_path = '/workspaces/src/aruco_detector/map'
+        # yaml_path = yaml_path = os.path.join(map_path, 'map01.yaml')
+        # with open(yaml_path, 'r') as f:
+        #     map_metadata = yaml.safe_load(f)
+        # image_path = yaml_path = os.path.join(map_path, map_metadata['image'])
+        # resolution = map_metadata['resolution']
+        # origin = map_metadata['origin']
+        # occupied_thresh = map_metadata.get('occupied_thresh', 0.65)
 
-        img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-        if img is None:
-            raise RuntimeError(f"Can't load map: {image_path}")
-        if len(img.shape) == 3:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+        # if img is None:
+        #     raise RuntimeError(f"Can't load map: {image_path}")
+        # if len(img.shape) == 3:
+        #     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        img = cv2.flip(img, 0)
-        h, w = img.shape
+        # img = cv2.flip(img, 0)
+        # h, w = img.shape
 
-        data = []
-        for row in img:
-            for pixel in row:
-                occ = 100 if pixel < occupied_thresh * 255 else 0
-                data.append(occ)
+        # data = []
+        # for row in img:
+        #     for pixel in row:
+        #         occ = 100 if pixel < occupied_thresh * 255 else 0
+        #         data.append(occ)
 
-        self.map_msg = OccupancyGrid()
-        self.map_msg.header = Header()
-        self.map_msg.info.resolution = resolution
-        self.map_msg.info.width = w
-        self.map_msg.info.height = h
-        self.map_msg.info.origin.position.x = origin[0]
-        self.map_msg.info.origin.position.y = origin[1]
-        self.map_msg.info.origin.position.z = 0.0
-        self.map_msg.info.origin.orientation.w = 1.0
-        self.map_msg.data = data
+        # self.map_msg = OccupancyGrid()
+        # self.map_msg.header = Header()
+        # self.map_msg.info.resolution = resolution
+        # self.map_msg.info.width = w
+        # self.map_msg.info.height = h
+        # self.map_msg.info.origin.position.x = origin[0]
+        # self.map_msg.info.origin.position.y = origin[1]
+        # self.map_msg.info.origin.position.z = 0.0
+        # self.map_msg.info.origin.orientation.w = 1.0
+        # self.map_msg.data = data
 
-        self.timer = self.create_timer(1.0, self.publish_map)
+        # self.timer = self.create_timer(1.0, self.publish_map)
 
-    def publish_map(self):
-        self.map_msg.header.stamp = self.get_clock().now().to_msg()
-        self.map_msg.header.frame_id = "map"  
-        self.map_pub.publish(self.map_msg)
+    # def publish_map(self):
+    #     self.map_msg.header.stamp = self.get_clock().now().to_msg()
+    #     self.map_msg.header.frame_id = "map"  
+    #     self.map_pub.publish(self.map_msg)
 
     def polygon_area(self, pts):
         pts = np.array(pts[0])
         return 0.5 * abs(np.dot(pts[:,0], np.roll(pts[:,1], 1)) - np.dot(pts[:,1], np.roll(pts[:,0], 1)))
+    
+    def config_callback(self, msg: ArucoMarkerConfig):
+        self.marker_config = {m.id: {'x': m.x, 'y': m.y, 'theta': m.theta} for m in msg.markers}
+        self.unflipped_ids = list(msg.unflipped_ids)
+
+        self.get_logger().info('Received marker config from topic:')
+        for mid, pose in self.marker_config.items():
+            flipped = '' if mid in self.unflipped_ids else '(flipped)'
+            self.get_logger().info(f'  ID {mid}: {pose} {flipped}')
 
     def image_callback(self, msg):
+        if not self.marker_config:
+            return
+        
         cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
         if cv_image is None:
             return
@@ -119,12 +134,11 @@ class ArucoDetectorNode(Node):
 
         for i, marker_id in enumerate(ids.flatten()):
         
-            if marker_id not in self.marker_map or self.polygon_area(corners[i])<1500:
+            if marker_id not in self.marker_config  or self.polygon_area(corners[i])<1500:
                 continue
       
-            # print(self.polygon_area(corners[i]))
             image_points = corners[i]  # shape: (4, 2)
-            if marker_id not in [3,4,5]:
+            if marker_id not in self.unflipped_ids:
                 reorder = [2, 3, 0, 1]
                 image_points = image_points[:, reorder, :]
 
@@ -155,7 +169,7 @@ class ArucoDetectorNode(Node):
             T_camera_marker[0:3, 3] = tvec.flatten()
 
 
-            m = self.marker_map[marker_id]
+            m = self.marker_config[marker_id]
             theta = m['theta']
             cos_t, sin_t = np.cos(theta), np.sin(theta)
             R_map_marker = np.array([
