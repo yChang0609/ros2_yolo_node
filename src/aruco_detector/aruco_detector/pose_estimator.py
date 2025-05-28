@@ -47,9 +47,9 @@ class ArucoDetectorNode(Node):
 
         self.rear_data = [0.0, 0.0]
         self.front_data = [0.0, 0.0]
-        self.create_subscription(Float32MultiArray, "/car_C_rear_wheel", self.rear_callback, 10)
-        self.create_subscription(Float32MultiArray, "/car_C_front_wheel", self.front_callback, 10)
-        self.create_timer(0.05, self.update_odometry_timer)  
+        # self.create_subscription(Float32MultiArray, "/car_C_rear_wheel", self.rear_callback, 10)
+        # self.create_subscription(Float32MultiArray, "/car_C_front_wheel", self.front_callback, 10)
+        # self.create_timer(0.05, self.update_odometry_timer)  
 
         self.change_scene_sub = self.create_subscription(
             Bool,
@@ -58,7 +58,7 @@ class ArucoDetectorNode(Node):
             10
         )
 
-        self.test = True
+        self.test = False
         if(self.test):
             with open("/workspaces/src/aruco_detector/config/aruco_location.yaml", 'r') as f:
                 full_config = yaml.safe_load(f)
@@ -89,9 +89,26 @@ class ArucoDetectorNode(Node):
             return
 
         self.odom_pose = self.update_odometry_from_four_wheels(
-            self.front_data, self.rear_data, self.odom_pose, dt, 1.15
+            self.front_data, self.rear_data, self.odom_pose, dt, scale=1.0
         )
 
+        # === DEBUG PUBLISH: Odometry-only Pose ===
+        x, y, theta = self.odom_pose
+        odom_quat = np.array([
+            0.0, 0.0,
+            np.sin(theta / 2.0),
+            np.cos(theta / 2.0)
+        ])
+        odom_pose_msg = PoseWithCovarianceStamped()
+        odom_pose_msg.header.frame_id = "map"
+        odom_pose_msg.pose.pose.position.x = x
+        odom_pose_msg.pose.pose.position.y = y
+        odom_pose_msg.pose.pose.position.z = 0.0
+        odom_pose_msg.pose.pose.orientation.x = odom_quat[0]
+        odom_pose_msg.pose.pose.orientation.y = odom_quat[1]
+        odom_pose_msg.pose.pose.orientation.z = odom_quat[2]
+        odom_pose_msg.pose.pose.orientation.w = odom_quat[3]
+        self.debug_odom_pub.publish(odom_pose_msg)
         # x, y, theta = self.odom_pose
         # self.get_logger().info(f"Odometry: x={x:.2f}, y={y:.2f}, θ={np.degrees(theta):.1f}°")
 
@@ -108,13 +125,30 @@ class ArucoDetectorNode(Node):
         dt: float,
         wheel_radius: float = 0.04,
         wheel_base: float = 0.23,
-        scale:float = 1.0
+        scale: float = 1.0,
+        mode: str = "rad/s"  # "deg/s", "rad/s", "mps"
     ) -> np.ndarray:
-        def compute_pose(wheel_l, wheel_r, pose):
-            omega_l = wheel_l *scale
-            omega_r = wheel_r *scale
-            v_l = wheel_radius * omega_l
-            v_r = wheel_radius * omega_r
+        """
+        :param mode: "deg/s", "rad/s", "mps"
+        """
+
+        def convert_to_mps(val: float) -> float:
+            if mode == "deg/s":
+                # deg/s → rad/s → m/s
+                return (val * np.pi / 180.0) * wheel_radius * scale
+            elif mode == "rad/s":
+                return val * wheel_radius * scale
+            elif mode == "mps":
+                return val * scale
+            else:
+                raise ValueError(f"Unknown mode: {mode}")
+
+        def compute_pose(v_l_raw, v_r_raw, pose):
+            v_l = convert_to_mps(v_l_raw)
+            v_r = convert_to_mps(v_r_raw)
+
+            print(f"[{mode}] v_l: {v_l:.4f} m/s, v_r: {v_r:.4f} m/s")
+
             v = (v_r + v_l) / 2.0
             omega = (v_r - v_l) / wheel_base
 
@@ -122,29 +156,16 @@ class ArucoDetectorNode(Node):
             x += v * np.cos(theta) * dt
             y += v * np.sin(theta) * dt
             theta += omega * dt
+
             return np.array([x, y, theta])
-        
+
         pose_front = compute_pose(front_wheel_data[0], front_wheel_data[1], last_pose)
         pose_rear = compute_pose(rear_wheel_data[0], rear_wheel_data[1], last_pose)
 
         pose_avg = (pose_front + pose_rear) / 2.0
-        pose_avg[2] = np.arctan2(np.sin(pose_avg[2]), np.cos(pose_avg[2]))  # 角度正規化 [-pi, pi]
+        pose_avg[2] = np.arctan2(np.sin(pose_avg[2]), np.cos(pose_avg[2]))  # normalize theta
+
         return pose_avg
-        # omega_l = (front_wheel_data[0] + rear_wheel_data[0]) / 2.0
-        # omega_r = (front_wheel_data[1] + rear_wheel_data[1]) / 2.0
-
-        # v_l = wheel_radius * omega_l
-        # v_r = wheel_radius * omega_r
-
-        # v = (v_r + v_l) / 2.0
-        # omega = (v_r - v_l) / wheel_base
-
-        # x, y, theta = last_pose
-        # x += v * np.cos(theta) * dt
-        # y += v * np.sin(theta) * dt
-        # theta += omega * dt
-
-        # return np.array([x, y, theta])
     
     def key_listener(self):
         import sys
@@ -173,7 +194,7 @@ class ArucoDetectorNode(Node):
     def config_callback(self, msg: ArucoMarkerConfig):
         self.marker_config = {m.id: {'x': m.x, 'y': m.y, 'theta': m.theta} for m in msg.markers}
         self.unflipped_ids = list(msg.unflipped_ids)
-
+        self.reset_internal_state()
         self.get_logger().info('Received marker config from topic:')
         for mid, pose in self.marker_config.items():
             flipped = '' if mid in self.unflipped_ids else '(flipped)'
@@ -191,29 +212,14 @@ class ArucoDetectorNode(Node):
         msg = self.image_queue.popleft()
         cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
         if cv_image is None:
+            print("[Error] cv_image is None")
             return
         
         # Estimate pose
         pose_list = self.process_markers(cv_image)
         
         if not pose_list:
-            x, y, theta = self.odom_pose
-            odom_quat = np.array([
-                0.0, 0.0,
-                np.sin(theta / 2.0),
-                np.cos(theta / 2.0)
-            ])
-
-            pose_msg = PoseWithCovarianceStamped()
-            pose_msg.header.frame_id = "map"
-            pose_msg.pose.pose.position.x = x
-            pose_msg.pose.pose.position.y = y
-            pose_msg.pose.pose.position.z = 0.0
-            pose_msg.pose.pose.orientation.x = odom_quat[0]
-            pose_msg.pose.pose.orientation.y = odom_quat[1]
-            pose_msg.pose.pose.orientation.z = odom_quat[2]
-            pose_msg.pose.pose.orientation.w = odom_quat[3]
-            self.pose_pub.publish(pose_msg)
+            print("[warning] no marker")
             return
         
         # Marker-based estimation
@@ -233,7 +239,9 @@ class ArucoDetectorNode(Node):
         avg_quat /= np.linalg.norm(avg_quat)
 
         # Fusion with odometry
-        self.last_pos, self.last_quat = self.fuse_pose_with_odom(avg_pos, avg_quat, self.odom_pose)
+        # self.last_pos, self.last_quat = self.fuse_pose_with_odom(avg_pos, avg_quat, self.odom_pose)
+        self.last_pos = avg_pos
+        self.last_quat = avg_quat
 
         # Publish final pose
         print(f"{self.last_pos}")
@@ -247,24 +255,6 @@ class ArucoDetectorNode(Node):
         pose_msg.pose.pose.orientation.z = self.last_quat[2]
         pose_msg.pose.pose.orientation.w = self.last_quat[3]
         self.pose_pub.publish(pose_msg)
-
-        # === DEBUG PUBLISH: Odometry-only Pose ===
-        x, y, theta = self.odom_pose
-        odom_quat = np.array([
-            0.0, 0.0,
-            np.sin(theta / 2.0),
-            np.cos(theta / 2.0)
-        ])
-        odom_pose_msg = PoseWithCovarianceStamped()
-        odom_pose_msg.header.frame_id = "map"
-        odom_pose_msg.pose.pose.position.x = x
-        odom_pose_msg.pose.pose.position.y = y
-        odom_pose_msg.pose.pose.position.z = 0.0
-        odom_pose_msg.pose.pose.orientation.x = odom_quat[0]
-        odom_pose_msg.pose.pose.orientation.y = odom_quat[1]
-        odom_pose_msg.pose.pose.orientation.z = odom_quat[2]
-        odom_pose_msg.pose.pose.orientation.w = odom_quat[3]
-        self.debug_odom_pub.publish(odom_pose_msg)
 
         # === DEBUG PUBLISH: ArUco marker avg Pose ===
         avg_pos_msg = PoseWithCovarianceStamped()
@@ -284,7 +274,7 @@ class ArucoDetectorNode(Node):
             debug_img = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
             self.image_pub.publish(debug_img)
 
-    def fuse_pose_with_odom(self, avg_pos, avg_quat, odom_pose, w_marker=0.7, w_odom=0.3):
+    def fuse_pose_with_odom(self, avg_pos, avg_quat, odom_pose, w_marker=0.9, w_odom=0.1):
         odom_pos = np.array([odom_pose[0], odom_pose[1], 0.0])
         fused_pos = w_marker * avg_pos + w_odom * odom_pos
 
@@ -305,7 +295,7 @@ class ArucoDetectorNode(Node):
         result_poses = []
         # >> Pre-process
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+        # gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
         # >> Detect markers
         corners, ids, _ = cv2.aruco.detectMarkers(gray, self.config.aruco_dict, parameters=self.config.aruco_params)
@@ -381,15 +371,26 @@ class ArucoDetectorNode(Node):
         
     def scene_reset_callback(self, msg: Bool):
         if msg.data: 
-            self.get_logger().info("Scene change requested. Resetting state...")
+            print("Scene change requested. Resetting state...")
             self.reset_internal_state()
 
     def reset_internal_state(self):
-        self.last_pos = None
-        self.last_quat = None
+        self.last_pos = np.zeros((3,))
+        self.last_quat = np.zeros((4,))
         self.image_queue.clear()
         self.odom_pose = [0.0, 0.0, 0.0]
-        self.get_logger().info("Internal state has been reset.")
+        pose_msg = PoseWithCovarianceStamped()
+        pose_msg.header.frame_id = "map"
+        pose_msg.pose.pose.position.x = self.last_pos[0]
+        pose_msg.pose.pose.position.y = self.last_pos[1]
+        pose_msg.pose.pose.position.z = self.last_pos[2]
+        pose_msg.pose.pose.orientation.x = self.last_quat[0]
+        pose_msg.pose.pose.orientation.y = self.last_quat[1]
+        pose_msg.pose.pose.orientation.z = self.last_quat[2]
+        pose_msg.pose.pose.orientation.w = self.last_quat[3]
+        self.pose_pub.publish(pose_msg)
+
+        print("Internal state has been reset.")
 
 def main(args=None):
     rclpy.init(args=args)
