@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "detector = aruco_detector.detector:main",
+            "pose_estimator = aruco_detector.pose_estimator:main",
             "recorder = aruco_detector.record_aruco:main",
         ],
     },

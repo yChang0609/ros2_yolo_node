@@ -30,7 +30,7 @@ marker_dict = {}
 
 def to_map_coords(px, py):
     map_x = px * resolution + origin[0]
-    map_y = py * resolution*2 + origin[1]
+    map_y = py * resolution + origin[1]
 
     return map_x, map_y
 
