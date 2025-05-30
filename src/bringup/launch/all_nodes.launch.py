@@ -9,10 +9,10 @@ def generate_launch_description():
             name='aruco_estimator',
             output='screen'
         ),
-        # Node(
-        #     package='yolo_pkg',
-        #     executable='yolo_detector',
-        #     # name='yolo',
-        #     output='screen'
-        # ),
+        Node(
+            package='yolo_pkg',
+            executable='yolo_detector',
+            name='yolo',
+            # output='screen'
+        ),
     ])

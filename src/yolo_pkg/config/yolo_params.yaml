@@ -1,6 +1,6 @@
 yolo:
   conf: 0.6
-  obb_model: "object_detection_best.pt"
+  obb_model: "pickachu_detector.pt"
   seg_model: "yolo11n-seg.pt"
 
 image:

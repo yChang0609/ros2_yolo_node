@@ -12,11 +12,9 @@ from cv_bridge import CvBridge
 
 
 ## >> ROS2 interfaces
-from interfaces_pkg.msg import ArucoMarkerConfig
 from sensor_msgs.msg import CompressedImage, Image
-from std_msgs.msg import Float32MultiArray, Bool
-from geometry_msgs.msg import PoseWithCovarianceStamped
-from scipy.spatial.transform import Rotation as scipy_R
+from interfaces_pkg.srv import PikachuDetect  
+from geometry_msgs.msg import Point
 
 # >> Self package
 from yolo_pkg.load_params import LoadParams
@@ -39,6 +37,9 @@ class YOLODetectorNode(Node):
         self.image_pub = self.create_publisher(Image, '/yolo_detector/detected_image', 10)
         self.create_timer(0.05, self.process_image_queue) 
 
+        self.detect_service = self.create_service(
+            PikachuDetect, 'detect_pikachu', self.handle_detect_pikachu
+        )
         # >> for keyboard input
         threading.Thread(target=self.key_listener, daemon=True).start()
 
@@ -76,20 +77,19 @@ class YOLODetectorNode(Node):
         if cv_image is None:
             print("[Error] cv_image is None")
             return
-        # TODO: 
-        # - publish draw bouning box 
-        # - filte of pikachu label
-        # - get box info
+        
         results = self.yolo_model(cv_image, verbose=False)
         result = results[0]
         boxes = result.boxes
 
         for box in boxes:
             cls_id = int(box.cls[0].item())
-            label = self.names[cls_id]   
-            if label.lower() != "pikachu":
-                continue
+            label = self.names[cls_id]
             conf = box.conf[0].item()
+
+            if label.lower() != "pikachu" or conf < 0.8:
+                continue
+
             xyxy = box.xyxy[0].cpu().numpy().astype(int)
             x1, y1, x2, y2 = xyxy
             cv2.rectangle(cv_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -98,6 +98,36 @@ class YOLODetectorNode(Node):
             
         drawn_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
         self.image_pub.publish(drawn_msg)
+        
+    def handle_detect_pikachu(self, request, response):
+        try:
+            # Convert image to cv2
+            cv_image = self.bridge.imgmsg_to_cv2(request.image, desired_encoding="bgr8")
+        except Exception as e:
+            self.get_logger().error(f"Image conversion failed: {e}")
+            response.detected = False
+            response.position = Point()
+            return response
+
+        results = self.yolo_model(cv_image, verbose=False)
+        result = results[0]
+        boxes = result.boxes
+
+        for box in boxes:
+            cls_id = int(box.cls[0].item())
+            label = self.names[cls_id]
+            conf = box.conf[0].item()
+            if label.lower() == "pikachu" and conf > 0.8:
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                cx = float((x1 + x2) / 2.0)
+                cy = float((y1 + y2) / 2.0)
+                response.detected = True
+                response.position = Point(x=cx, y=cy, z=0.0)
+                return response
+
+        response.detected = False
+        response.position = Point()
+        return response
 
 def main(args=None):
     rclpy.init(args=args)
