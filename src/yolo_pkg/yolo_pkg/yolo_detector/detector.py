@@ -27,6 +27,7 @@ class YOLODetectorNode(Node):
         self.params = LoadParams()
         self.yolo_model = self.params.get_detection_model()
         self.names = self.yolo_model.names
+        self.conf = 0.8
         print(self.names)
         # >> image proccess
         self.image_queue = deque(maxlen=5)
@@ -87,7 +88,7 @@ class YOLODetectorNode(Node):
             label = self.names[cls_id]
             conf = box.conf[0].item()
 
-            if label.lower() != "pikachu" or conf < 0.8:
+            if label.lower() != "pikachu" or conf < self.conf:
                 continue
 
             xyxy = box.xyxy[0].cpu().numpy().astype(int)
@@ -98,7 +99,7 @@ class YOLODetectorNode(Node):
             
         drawn_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
         self.image_pub.publish(drawn_msg)
-        
+
     def handle_detect_pikachu(self, request, response):
         try:
             # Convert image to cv2
@@ -117,7 +118,7 @@ class YOLODetectorNode(Node):
             cls_id = int(box.cls[0].item())
             label = self.names[cls_id]
             conf = box.conf[0].item()
-            if label.lower() == "pikachu" and conf > 0.8:
+            if label.lower() == "pikachu" and conf > self.conf:
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                 cx = float((x1 + x2) / 2.0)
                 cy = float((y1 + y2) / 2.0)

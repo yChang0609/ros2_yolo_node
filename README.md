@@ -13,6 +13,10 @@ r
 ```
 ros2 run yolo_pkg yolo_detection_node
 ```
+4. launch node
+```
+ros2 launch bringup all_nodes.launch.py
+```
 ### Mode
 The YOLO node can operate in different modes depending on your use case:
 - Mode 1: Draw bounding boxes without screenshot
