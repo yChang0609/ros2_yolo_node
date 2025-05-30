@@ -28,16 +28,16 @@ class ArucoConfig:
 
         self.T_camera_base = np.eye(4)
         self.T_camera_base[0:3, 0:3] = np.array([
-            [0, 0, 1],
-            [-1, 0, 0],
-            [0, -1, 0]
+            [ 0,  0,  1],  # base x <- camera z
+            [-1,  0,  0],  # base y <- -camera x
+            [ 0, -1,  0]   # base z <- -camera y
         ])
         self.T_camera_base[0:3, 3] = [-0.40, 0.0, 0.0]
 
         R_align = np.array([
-            [1, 0,  0],
-            [0, 0, -1],
-            [0, 1,  0]
+            [ 0,  0,  1],  # map x <- camera z
+            [-1,  0,  0],  # map y <- -camera x
+            [ 0, -1,  0]   # map z <- -camera y
         ])
         self.T_align = np.eye(4)
         self.T_align[0:3, 0:3] = np.linalg.inv(R_align)

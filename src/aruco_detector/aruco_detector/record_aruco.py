@@ -4,17 +4,13 @@ from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage, Image
 from geometry_msgs.msg import PoseStamped
 from cv_bridge import CvBridge
-from nav_msgs.msg import OccupancyGrid
-from std_msgs.msg import Header
+
 
 import cv2
 import numpy as np
 import yaml
-import os
-from scipy.spatial.transform import Rotation as R_scipy
+from scipy.spatial.transform import Rotation as scipy_R
 import tf2_ros
-import tf2_geometry_msgs
-from geometry_msgs.msg import TransformStamped
 import threading
 from .aruco_config import ArucoConfig
 
@@ -68,7 +64,7 @@ class ArucoDetectorNode(Node):
                 trans.transform.translation.z
             ]
             q = trans.transform.rotation
-            r = R_scipy.from_quat([q.x, q.y, q.z, q.w])
+            r = scipy_R.from_quat([q.x, q.y, q.z, q.w])
             T[0:3, 0:3] = r.as_matrix()
             return T
         except Exception as e:
@@ -131,14 +127,16 @@ class ArucoDetectorNode(Node):
             T_camera_marker = np.eye(4)
             T_camera_marker[0:3, 0:3] = R
             T_camera_marker[0:3, 3] = tvec.flatten()
+            print(tvec.flatten())
 
-            T_map_marker = T_map_base @ self.config.T_camera_base @ T_camera_marker
+            T_map_marker = T_map_base @ self.config.T_camera_base @ T_camera_marker @ self.config.T_align
+            
+
 
             pos = T_map_marker[0:3, 3]
             yaw = np.arctan2(T_map_marker[1, 0], T_map_marker[0, 0])
-
-            print(f"[ArUco {marker_id}] x={pos[0]:.3f}, y={pos[1]:.3f}, theta={yaw:.3f} rad")
-
+            # print(f"[ArUco {marker_id}] x={pos[0]:.3f}, y={pos[1]:.3f}, theta={yaw:.3f} rad")
+            print(yaw)
             if self.save:
                 self.detected_marker_map[int(marker_id)] = {
                     'x': float(pos[0]),
@@ -154,10 +152,11 @@ class ArucoDetectorNode(Node):
             pose_msg.pose.position.y = pos[1]
             pose_msg.pose.position.z = 0.0
 
-            qz = np.sin(yaw / 2.0)
-            qw = np.cos(yaw / 2.0)
-            pose_msg.pose.orientation.z = qz
-            pose_msg.pose.orientation.w = qw
+            quat = scipy_R.from_matrix(T_map_marker[0:3, 0:3]).as_quat()
+            pose_msg.pose.orientation.x = quat[0]
+            pose_msg.pose.orientation.y = quat[1]
+            pose_msg.pose.orientation.z = quat[2]
+            pose_msg.pose.orientation.w = quat[3]
 
             self.marker_pose_pub.publish(pose_msg)
 

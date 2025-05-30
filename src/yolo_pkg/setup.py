@@ -22,6 +22,7 @@ setup(
     entry_points={
         "console_scripts": [
             "yolo_detection_node = yolo_pkg.main:main",
+            "yolo_detector = yolo_pkg.yolo_detector.detector:main"
         ],
     },
 )

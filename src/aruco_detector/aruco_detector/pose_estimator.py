@@ -33,7 +33,7 @@ class ArucoDetectorNode(Node):
         self.debug_odom_pub = self.create_publisher(PoseWithCovarianceStamped, '/aruco_detector/deubg/odom/pose', 10)
         self.debug_marker_pub = self.create_publisher(PoseWithCovarianceStamped, '/aruco_detector/debug/marker/pose', 10)
 
-
+        self.image_queue = deque(maxlen=5)  
         self.subscription = self.create_subscription(
             CompressedImage,
             '/camera/image/compressed',
@@ -75,7 +75,7 @@ class ArucoDetectorNode(Node):
             self.unflipped_ids = []
             self.marker_config = {}
 
-        self.image_queue = deque(maxlen=5)  
+        
         self.create_timer(0.05, self.process_image_queue) 
 
         threading.Thread(target=self.key_listener, daemon=True).start()
@@ -230,7 +230,8 @@ class ArucoDetectorNode(Node):
             dists = np.linalg.norm(pos_arr - self.last_pos, axis=1)
             filtered_idx = np.where(dists < 0.8)[0]  # filter outliers
             if len(filtered_idx) == 0:
-                return # TODO aslo publish odom pose
+                print("[warning] no valid marker ")
+                return 
             pos_arr = pos_arr[filtered_idx]
             q_arr = q_arr[filtered_idx]
 
@@ -352,7 +353,7 @@ class ArucoDetectorNode(Node):
             T_map_marker[:3, :3] = R_map_marker
             T_map_marker[:3, 3] = np.array([m['x'], m['y'], 0])
 
-            T_map_camera = T_map_marker @ self.config.T_align @ np.linalg.inv(T_camera_marker)
+            T_map_camera = T_map_marker @ np.linalg.inv(self.config.T_align) @ np.linalg.inv(T_camera_marker)
             T_map_base = T_map_camera @ np.linalg.inv(self.config.T_camera_base)
 
             pos = T_map_base[:3, 3]
