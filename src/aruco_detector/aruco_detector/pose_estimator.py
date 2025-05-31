@@ -226,14 +226,14 @@ class ArucoDetectorNode(Node):
         pos_arr = np.array([pose[:3] for pose in pose_list])
         q_arr = np.array([pose[3:] for pose in pose_list])
 
-        if hasattr(self, "last_pos"):
-            dists = np.linalg.norm(pos_arr - self.last_pos, axis=1)
-            filtered_idx = np.where(dists < 0.8)[0]  # filter outliers
-            if len(filtered_idx) == 0:
-                print("[warning] no valid marker ")
-                return 
-            pos_arr = pos_arr[filtered_idx]
-            q_arr = q_arr[filtered_idx]
+        # if hasattr(self, "last_pos"):
+        #     dists = np.linalg.norm(pos_arr - self.last_pos, axis=1)
+        #     filtered_idx = np.where(dists < 0.8)[0]  # filter outliers
+        #     if len(filtered_idx) == 0:
+        #         print("[warning] no valid marker ")
+        #         return 
+        #     pos_arr = pos_arr[filtered_idx]
+        #     q_arr = q_arr[filtered_idx]
 
         avg_pos = np.mean(pos_arr, axis=0)
         avg_quat = np.mean(q_arr, axis=0)

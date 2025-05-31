@@ -1,10 +1,18 @@
+## >> ROS2
 import rclpy
 from rclpy.node import Node
 
-from sensor_msgs.msg import CompressedImage, Image
-from cv_bridge import CvBridge
+# >> Basic package
 import cv2
+import yaml
+import threading
 import numpy as np
+from collections import deque
+from cv_bridge import CvBridge
+
+## >> ROS2 interfaces
+from interfaces_pkg.msg import ArucoMarkerConfig
+from sensor_msgs.msg import CompressedImage, Image
 
 # 顏色定義
 BLUE = (255, 0, 0)  # BGR
@@ -19,56 +27,32 @@ class DoorDetectorNode(Node):
             '/camera/image/compressed',
             self.image_callback,
             10)
+        self.image_queue = deque(maxlen=5)  
         self.publisher_ = self.create_publisher(Image, '/door_detector/debug_image', 10)
         self.bridge = CvBridge()
         self.get_logger().info("Door Detector Node Initialized.")
 
+        self.create_timer(0.05, self.process_image_queue) 
+
     def image_callback(self, msg):
-        cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        if self.marker_config:
+            self.image_queue.append(msg)
 
-        # 掃描線位置（中間）
-        y = cv_image.shape[0] // 2
-        scan_line = cv_image[y]
-
-        def is_color(pixel, target):
-            return all(abs(int(p) - int(t)) < TOLERANCE for p, t in zip(pixel, target))
-
-        # 找藍色外框區段
-        start_idx, end_idx = None, None
-        for i, pixel in enumerate(scan_line):
-            if is_color(pixel, BLUE):
-                if start_idx is None:
-                    start_idx = i
-                end_idx = i
-
-        if start_idx is None or end_idx is None:
-            self.get_logger().warn("找不到藍色外框")
+    def process_image_queue(self):
+        if not self.image_queue:
             return
+        
+        # Dequeue image
+        msg = self.image_queue.popleft()
+        cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        if cv_image is None:
+            print("[Error] cv_image is None")
+            return
+        
+        # TODO 
+        # 檢查 aruco 之間是否有門 
+        # aruco list door1[ 0, 1, 2] door2[ 0, 1, 2] door3[ 0, 1, 2]
 
-        section = scan_line[start_idx:end_idx + 1]
-        section_length = len(section)
-        num_doors = 3
-        door_width = section_length // (num_doors * 2)
-
-        door_states = []
-        for i in range(num_doors):
-            door_center = int((2 * i + 1) * door_width)
-            pixel = section[door_center]
-            if is_color(pixel, BROWN):
-                door_states.append("CLOSED")
-                color = (0, 0, 255)  # 紅
-            else:
-                door_states.append("OPEN")
-                color = (0, 255, 0)  # 綠
-            # 畫門位置
-            cv2.circle(cv_image, (start_idx + door_center, y), 5, color, -1)
-
-        # 顯示狀態
-        self.get_logger().info(f"門狀態: {door_states}")
-
-        # 發佈 debug 圖像
-        img_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
-        self.publisher_.publish(img_msg)
 
 def main(args=None):
     rclpy.init(args=args)

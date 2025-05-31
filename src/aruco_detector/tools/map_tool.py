@@ -5,7 +5,7 @@ import math
 import os
 
 # === 修改這裡 ===
-map_path = '/home/test/workspace/ros2_yolo_node/src/aruco_detector/map'
+map_path = '/home/test/workspace/ros2_yolo_node/src/aruco_detector/map/random_door'
 yaml_path = yaml_path = os.path.join(map_path, 'map01.yaml')
 with open(yaml_path, 'r') as f:
     map_data = yaml.safe_load(f)

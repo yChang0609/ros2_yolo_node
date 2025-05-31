@@ -27,7 +27,7 @@ class YOLODetectorNode(Node):
         self.params = LoadParams()
         self.yolo_model = self.params.get_detection_model()
         self.names = self.yolo_model.names
-        self.conf = 0.8
+        self.conf = 0.85
         print(self.names)
         # >> image proccess
         self.image_queue = deque(maxlen=5)
