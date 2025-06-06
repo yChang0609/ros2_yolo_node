@@ -13,7 +13,8 @@ from cv_bridge import CvBridge
 
 ## >> ROS2 interfaces
 from sensor_msgs.msg import CompressedImage, Image
-from interfaces_pkg.srv import PikachuDetect  
+from interfaces_pkg.srv import PikachuDetect, LivingRoomDetect
+from interfaces_pkg.msg import ObjectDetection 
 from geometry_msgs.msg import Point
 
 # >> Self package
@@ -40,6 +41,9 @@ class YOLODetectorNode(Node):
 
         self.detect_service = self.create_service(
             PikachuDetect, 'detect_pikachu', self.handle_detect_pikachu
+        )
+        self.living_room_detect_service = self.create_service(
+            LivingRoomDetect, 'living_room_detect', self.handle_living_room_detect
         )
         # >> for keyboard input
         threading.Thread(target=self.key_listener, daemon=True).start()
@@ -88,7 +92,7 @@ class YOLODetectorNode(Node):
             label = self.names[cls_id]
             conf = box.conf[0].item()
 
-            if label.lower() != "pikachu" or conf < self.conf:
+            if label.lower() != "pickachu" or conf < self.conf:
                 continue
 
             xyxy = box.xyxy[0].cpu().numpy().astype(int)
@@ -118,7 +122,7 @@ class YOLODetectorNode(Node):
             cls_id = int(box.cls[0].item())
             label = self.names[cls_id]
             conf = box.conf[0].item()
-            if label.lower() == "pikachu" and conf > self.conf:
+            if label.lower() == "pickachu" and conf > self.conf:
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                 cx = float((x1 + x2) / 2.0)
                 cy = float((y1 + y2) / 2.0)
@@ -128,6 +132,43 @@ class YOLODetectorNode(Node):
 
         response.detected = False
         response.position = Point()
+        return response
+    
+    def handle_living_room_detect(self, request, response):
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(request.image, desired_encoding="bgr8")
+        except Exception as e:
+            self.get_logger().error(f"Image conversion failed: {e}")
+            response.detections = []
+            return response
+        results = self.yolo_model(cv_image, verbose=False)
+        result = results[0]
+        boxes = result.boxes
+
+        detections = []
+
+        for box in boxes:
+            cls_id = int(box.cls[0].item())
+            label = self.names[cls_id]
+            conf = box.conf[0].item()
+
+            if label.lower() in ["cabinet", "pickachu"] and conf > self.conf:
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+
+                cx = (x1 + x2) / 2.0
+                cy = (y1 + y2) / 2.0
+                w = x2 - x1
+                h = y2 - y1
+
+                det = ObjectDetection()
+                det.name = label
+                det.center = Point(x=float(cx), y=float(cy), z=0.0)
+                det.width = float(w)
+                det.height = float(h)
+
+                detections.append(det)
+
+        response.detections = detections
         return response
 
 def main(args=None):
